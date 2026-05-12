@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { QRCodeCanvas } from 'qrcode.react'
-import { Button, Heading, Text, InputText, Spinner, Colors } from '@curri/ui'
+import { Button, Heading, Text, Spinner, Colors } from '@curri/ui'
 import {
   type Blast,
   type ClientInfo,
@@ -14,10 +14,21 @@ import {
 } from '@hackathon/shared'
 import { useSession } from '@/lib/useSession'
 import { WEB_URL } from '@/lib/env'
+import { DispatchMap } from '@/components/DispatchMap'
+import {
+  DEFAULT_ROUTE,
+  DEFAULT_ROUTE_ID,
+  ROUTES,
+  getRoute,
+  type RouteSpec,
+} from '@/lib/routes'
 
 export default function DesktopPage() {
   const [sessionId, setSessionId] = useState<string | undefined>()
   const [creating, setCreating] = useState(true)
+  const [selectedRouteId, setSelectedRouteId] = useState<string>(DEFAULT_ROUTE_ID)
+  const [priority, setPriority] = useState<DispatchPriority>('quality')
+  const selectedRoute: RouteSpec = getRoute(selectedRouteId) ?? DEFAULT_ROUTE
 
   useEffect(() => {
     let cancelled = false
@@ -86,7 +97,27 @@ export default function DesktopPage() {
         </div>
       </section>
 
-      <DispatchView state={state} mobiles={mobiles} dispatch={dispatch} />
+      <section style={{ marginTop: 16 }}>
+        <DispatchMap
+          state={state}
+          mobiles={mobiles}
+          compose={{
+            pickup: selectedRoute.pickup.address,
+            dropoff: selectedRoute.dropoff.address,
+          }}
+        />
+      </section>
+
+      <DispatchView
+        state={state}
+        mobiles={mobiles}
+        dispatch={dispatch}
+        selectedRoute={selectedRoute}
+        selectedRouteId={selectedRouteId}
+        setSelectedRouteId={setSelectedRouteId}
+        priority={priority}
+        setPriority={setPriority}
+      />
 
       <DriverPanel state={state} mobiles={mobiles} />
     </main>
@@ -97,17 +128,37 @@ function DispatchView({
   state,
   mobiles,
   dispatch,
+  selectedRoute,
+  selectedRouteId,
+  setSelectedRouteId,
+  priority,
+  setPriority,
 }: {
   state: SessionState | undefined
   mobiles: ClientInfo[]
   dispatch: (e: { type: string; payload?: unknown }) => void
+  selectedRoute: RouteSpec
+  selectedRouteId: string
+  setSelectedRouteId: (id: string) => void
+  priority: DispatchPriority
+  setPriority: (p: DispatchPriority) => void
 }) {
   if (!state) {
     return null
   }
 
   if (state.status === 'idle') {
-    return <ComposeForm mobiles={mobiles} dispatch={dispatch} />
+    return (
+      <ComposeForm
+        mobiles={mobiles}
+        dispatch={dispatch}
+        selectedRoute={selectedRoute}
+        selectedRouteId={selectedRouteId}
+        setSelectedRouteId={setSelectedRouteId}
+        priority={priority}
+        setPriority={setPriority}
+      />
+    )
   }
 
   if (state.status === 'blasting' && state.delivery) {
@@ -142,37 +193,58 @@ function DispatchView({
 function ComposeForm({
   mobiles,
   dispatch,
+  selectedRoute,
+  selectedRouteId,
+  setSelectedRouteId,
+  priority,
+  setPriority,
 }: {
   mobiles: ClientInfo[]
   dispatch: (e: { type: string; payload?: unknown }) => void
+  selectedRoute: RouteSpec
+  selectedRouteId: string
+  setSelectedRouteId: (id: string) => void
+  priority: DispatchPriority
+  setPriority: (p: DispatchPriority) => void
 }) {
-  const [pickup, setPickup] = useState('123 Main St')
-  const [dropoff, setDropoff] = useState('456 Oak Ave')
-  const [priority, setPriority] = useState<DispatchPriority>('quality')
-
   const submit = () => {
-    if (!pickup.trim() || !dropoff.trim()) return
     if (mobiles.length === 0) return
     dispatch({
       type: 'delivery:dispatch',
-      payload: { pickup: pickup.trim(), dropoff: dropoff.trim(), priority },
+      payload: {
+        pickup: selectedRoute.pickup.address,
+        dropoff: selectedRoute.dropoff.address,
+        priority,
+      },
     })
   }
 
   return (
     <section style={{ marginTop: 32 }}>
       <Heading size="h2">New delivery</Heading>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
-        <InputText
-          label="Pickup"
-          value={pickup}
-          onChange={(e) => setPickup((e.target as HTMLInputElement).value)}
-        />
-        <InputText
-          label="Dropoff"
-          value={dropoff}
-          onChange={(e) => setDropoff((e.target as HTMLInputElement).value)}
-        />
+
+      <Text size="sm" color={Colors.GREY_700}>
+        pick a sample route (demo fixtures)
+      </Text>
+
+      <RoutePicker selectedRouteId={selectedRouteId} onSelect={setSelectedRouteId} />
+
+      <div
+        style={{
+          marginTop: 12,
+          padding: 12,
+          background: Colors.GREY_100,
+          borderRadius: 8,
+        }}
+      >
+        <Text size="sm" color={Colors.GREY_700}>
+          pickup
+        </Text>
+        <Text size="md">{selectedRoute.pickup.address}</Text>
+        <Text size="sm" color={Colors.GREY_700} style={{ marginTop: 6 }}>
+          dropoff
+        </Text>
+        <Text size="md">{selectedRoute.dropoff.address}</Text>
       </div>
 
       <div style={{ marginTop: 16, display: 'flex', gap: 16 }}>
@@ -191,6 +263,50 @@ function ComposeForm({
         </Button>
       </div>
     </section>
+  )
+}
+
+function RoutePicker({
+  selectedRouteId,
+  onSelect,
+}: {
+  selectedRouteId: string
+  onSelect: (id: string) => void
+}) {
+  return (
+    <div
+      style={{
+        marginTop: 8,
+        display: 'grid',
+        gridTemplateColumns: 'repeat(2, 1fr)',
+        gap: 8,
+      }}
+    >
+      {ROUTES.map((r) => {
+        const selected = r.id === selectedRouteId
+        return (
+          <button
+            key={r.id}
+            type="button"
+            onClick={() => onSelect(r.id)}
+            style={{
+              textAlign: 'left',
+              padding: '10px 12px',
+              borderRadius: 8,
+              border: `2px solid ${selected ? Colors.TEAL_500 : Colors.GREY_300}`,
+              background: selected ? Colors.TEAL_050 : '#fff',
+              cursor: 'pointer',
+              font: 'inherit',
+            }}
+          >
+            <div style={{ fontWeight: 600, fontSize: 14 }}>{r.label}</div>
+            <div style={{ fontSize: 12, color: Colors.GREY_700, marginTop: 2 }}>
+              {r.pickup.address.split(',')[0]} → {r.dropoff.address.split(',')[0]}
+            </div>
+          </button>
+        )
+      })}
+    </div>
   )
 }
 
