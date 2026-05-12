@@ -16,7 +16,6 @@ import { SAN_DIEGO_CENTER, findCoordsByAddress } from '@/lib/routes'
 
 const CENTER: [number, number] = SAN_DIEGO_CENTER
 const RADIUS_DEG = 0.06
-const DEFAULT_HEIGHT = 320
 
 function hashId(id: string): { a: number; b: number } {
   let h = 2166136261
@@ -98,7 +97,9 @@ export type DispatchMapInnerProps = {
    */
   selfId?: string
   /** Pixel height of the map container. Defaults to 320. */
-  height?: number
+  height?: number | string
+  /** Border radius of the map container. Defaults to 12. */
+  borderRadius?: number | string
 }
 
 export function DispatchMapInner({
@@ -106,8 +107,15 @@ export function DispatchMapInner({
   mobiles,
   compose,
   selfId,
-  height = DEFAULT_HEIGHT,
+  height = 320,
+  borderRadius = 12,
 }: DispatchMapInnerProps) {
+  const containerStyle = {
+    width: '100%',
+    height,
+    borderRadius,
+    overflow: 'hidden',
+  } as const
   const mockCoord = useMockCoords()
 
   const activeIds = useMemo(
@@ -162,7 +170,7 @@ export function DispatchMapInner({
     <MapContainer
       center={CENTER}
       zoom={12}
-      style={{ width: '100%', height, borderRadius: 12, overflow: 'hidden' }}
+      style={containerStyle}
       scrollWheelZoom={false}
     >
       <TileLayer
