@@ -11,7 +11,7 @@ export type ClientInfo = {
   joinedAt: number
 }
 
-export type DispatchPriority = 'speed' | 'quality'
+export type DispatchPriority = 'speed' | 'quality' | 'balanced'
 
 export type DeliveryStatus = 'idle' | 'blasting' | 'fulfilled'
 
@@ -116,6 +116,12 @@ export function driverScore(blend: DriverBlend): number {
 }
 
 export const CLAIM_WINDOW_MS = 30_000
+
+/**
+ * Number of drivers blasted in parallel per wave on the `balanced` priority.
+ * Tunable knob between `quality` (1 at a time) and `speed` (everyone at once).
+ */
+export const BALANCED_WAVE_SIZE = 3
 
 /**
  * Generic event envelope used over Socket.IO. See dispatch.ts for the typed

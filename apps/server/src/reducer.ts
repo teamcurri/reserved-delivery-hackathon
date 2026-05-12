@@ -9,6 +9,7 @@ import {
   type DriverEntry,
   type Session,
   type SessionState,
+  BALANCED_WAVE_SIZE,
   CLAIM_WINDOW_MS,
   SD_CENTER,
   driverScore,
@@ -145,6 +146,8 @@ export function reduce(
 /**
  * After a blast resolves (reject or expire), decide what happens next.
  * - Quality path: pick the next-best unblasted driver, blast them.
+ * - Balanced path: wait for the current wave to fully resolve, then launch
+ *   the next wave of up to BALANCED_WAVE_SIZE unblasted drivers.
  * - Speed path: keep waiting until all outstanding blasts resolve.
  * If no work remains, drop to idle so the desktop can restart.
  */
@@ -170,6 +173,29 @@ function advanceBlasting(state: SessionState, ctx: ReduceContext, blasts: Blast[
       return { ...state, blasts }
     }
     return { ...state, status: 'idle', blasts }
+  }
+
+  if (priority === 'balanced') {
+    // Still in current wave — let other blasts in the wave run their course.
+    if (blasts.some((b) => b.outcome === 'pending')) {
+      return { ...state, blasts }
+    }
+    const blastedIds = new Set(blasts.map((b) => b.driverId))
+    const ranked = rankDrivers(ctx.session, state).filter((r) => !blastedIds.has(r.clientId))
+    const wave = ranked.slice(0, BALANCED_WAVE_SIZE)
+    if (wave.length === 0) {
+      return { ...state, status: 'idle', blasts }
+    }
+    const now = Date.now()
+    const next: Blast[] = wave.map((r) => ({
+      blastId: nanoid(8),
+      driverId: r.clientId,
+      blastedAt: now,
+      expiresAt: now + CLAIM_WINDOW_MS,
+      outcome: 'pending',
+      reserved: false,
+    }))
+    return { ...state, blasts: [...blasts, ...next] }
   }
 
   // Speed path: idle out only when nothing is still pending.
@@ -208,7 +234,8 @@ function makeInitialBlasts(ranked: RankedDriver[], priority: DispatchPriority): 
       },
     ]
   }
-  return ranked.map((r) => ({
+  const wave = priority === 'balanced' ? ranked.slice(0, BALANCED_WAVE_SIZE) : ranked
+  return wave.map((r) => ({
     blastId: nanoid(8),
     driverId: r.clientId,
     blastedAt: now,
