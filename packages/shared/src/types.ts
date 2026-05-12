@@ -40,12 +40,40 @@ export type Blast = {
 }
 
 export type DriverBlend = {
-  /** 0..1 self-reported proximity. higher = closer. */
-  distance: number
-  /** 0..1 self-reported probability they accept a blast. */
+  /** 0..1 reaction-time-derived probability they accept a blast. */
   accept: number
-  /** 0..1 self-reported delivery quality. */
+  /** 0..1 quiz-derived delivery quality. */
   quality: number
+}
+
+export type LatLng = { lat: number; lng: number }
+
+export type OnboardingStep =
+  | 'name'
+  | 'quiz:box'
+  | 'quiz:seatbelt'
+  | 'quiz:school-zone'
+  | 'quiz:mom'
+  | 'reaction'
+  | 'done'
+
+export type QuizAnswers = {
+  box?: 'box' | 'fox'
+  seatbelt?: boolean
+  schoolZoneMph?: number
+  mom?: boolean
+  reactionMs?: number
+}
+
+export type DriverOnboarding = {
+  step: OnboardingStep
+  answers: QuizAnswers
+}
+
+export type DriverEntry = {
+  blend: DriverBlend
+  location: LatLng
+  onboarding?: DriverOnboarding
 }
 
 export type SessionState = {
@@ -53,7 +81,7 @@ export type SessionState = {
   delivery?: Delivery
   blasts: Blast[]
   fulfilledBy?: { clientId: string; identity?: Identity }
-  drivers: Record<string, DriverBlend>
+  drivers: Record<string, DriverEntry>
   lastWebhook?: { source: string; payload: unknown; at: number }
 }
 
@@ -65,7 +93,6 @@ export type Session = {
 }
 
 export const initialBlend = (): DriverBlend => ({
-  distance: 0.5,
   accept: 0.5,
   quality: 0.5,
 })
@@ -80,17 +107,12 @@ export const initialSessionState = (): SessionState => ({
  * Single source of truth for driver scoring. Used by:
  *  - the server reducer when picking the next quality-path driver
  *  - desktop UI to display the "efficiency score" of pinged drivers
+ *
+ * Distance is intentionally not in the formula yet — it's a display value.
+ * Replacing this with a distance-aware ranking is the clean follow-up.
  */
 export function driverScore(blend: DriverBlend): number {
   return blend.accept * 0.5 + blend.quality * 0.5
-}
-
-/**
- * Conventional display value derived from the self-reported proximity blend.
- * Pure UI helper — not used by the reducer.
- */
-export function approxMiles(blend: DriverBlend): number {
-  return Math.round((1 - blend.distance) * 5 * 10) / 10
 }
 
 export const CLAIM_WINDOW_MS = 30_000

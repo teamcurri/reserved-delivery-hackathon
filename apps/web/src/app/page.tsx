@@ -7,13 +7,25 @@ import {
   type Blast,
   type ClientInfo,
   type DispatchPriority,
+  type DriverEntry,
+  type OnboardingStep,
   type SessionState,
+  SD_CENTER,
   approxMiles,
   driverScore,
   initialBlend,
 } from '@hackathon/shared'
 import { useSession } from '@/lib/useSession'
 import { WEB_URL } from '@/lib/env'
+
+const FALLBACK_ENTRY: DriverEntry = {
+  blend: initialBlend(),
+  location: SD_CENTER,
+}
+
+function entryFor(state: SessionState | undefined, clientId: string): DriverEntry {
+  return state?.drivers[clientId] ?? FALLBACK_ENTRY
+}
 
 export default function DesktopPage() {
   const [sessionId, setSessionId] = useState<string | undefined>()
@@ -291,9 +303,9 @@ function QualityPing({
 }) {
   const remaining = useCountdown(blast.expiresAt)
   const driver = mobiles.find((c) => c.clientId === blast.driverId)
-  const blend = state.drivers[blast.driverId] ?? initialBlend()
-  const score = driverScore(blend)
-  const miles = approxMiles(blend)
+  const entry = entryFor(state, blast.driverId)
+  const score = driverScore(entry.blend)
+  const miles = approxMiles(entry.location)
 
   return (
     <div
@@ -306,7 +318,7 @@ function QualityPing({
     >
       <Text size="md">
         found a driver{driver ? <> · <strong>{driver.identity?.name ?? '(no name)'}</strong></> : null} ·{' '}
-        {miles} miles away
+        {miles} miles from downtown SD
       </Text>
       <Text size="sm" color={Colors.GREY_700}>
         pinging with {score.toFixed(2)} efficiency score
@@ -345,18 +357,20 @@ function DriverPanel({
           <thead>
             <tr style={{ textAlign: 'left' }}>
               <Th>Name</Th>
-              <Th>Distance</Th>
+              <Th>Step</Th>
               <Th>Accept</Th>
               <Th>Quality</Th>
+              <Th>Miles</Th>
               <Th>Score</Th>
               <Th>Blast</Th>
             </tr>
           </thead>
           <tbody>
             {mobiles.map((c) => {
-              const blend = state?.drivers[c.clientId] ?? initialBlend()
-              const score = driverScore(blend)
+              const entry = entryFor(state, c.clientId)
+              const score = driverScore(entry.blend)
               const active = activeIds.has(c.clientId)
+              const step = entry.onboarding?.step
               return (
                 <tr
                   key={c.clientId}
@@ -365,9 +379,10 @@ function DriverPanel({
                   }}
                 >
                   <Td>{c.identity?.name ?? '(no name)'}</Td>
-                  <Td>{blend.distance.toFixed(2)}</Td>
-                  <Td>{blend.accept.toFixed(2)}</Td>
-                  <Td>{blend.quality.toFixed(2)}</Td>
+                  <Td>{step ? prettyStep(step) : '—'}</Td>
+                  <Td>{entry.blend.accept.toFixed(2)}</Td>
+                  <Td>{entry.blend.quality.toFixed(2)}</Td>
+                  <Td>{approxMiles(entry.location)}</Td>
                   <Td>{score.toFixed(2)}</Td>
                   <Td>{active ? '● active' : ''}</Td>
                 </tr>
@@ -378,6 +393,25 @@ function DriverPanel({
       )}
     </section>
   )
+}
+
+function prettyStep(step: OnboardingStep): string {
+  switch (step) {
+    case 'name':
+      return 'name'
+    case 'quiz:box':
+      return 'quiz · box'
+    case 'quiz:seatbelt':
+      return 'quiz · seatbelt'
+    case 'quiz:school-zone':
+      return 'quiz · school zone'
+    case 'quiz:mom':
+      return 'quiz · mom'
+    case 'reaction':
+      return 'reaction test'
+    case 'done':
+      return '✓ done'
+  }
 }
 
 function Th({ children }: { children: React.ReactNode }) {
