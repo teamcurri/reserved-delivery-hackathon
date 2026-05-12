@@ -19,8 +19,8 @@ function MapSkeleton() {
     <div
       style={{
         width: '100%',
-        height: 320,
-        borderRadius: 12,
+        height: '100%',
+        minHeight: 320,
         background: '#f3f4f6',
         display: 'flex',
         alignItems: 'center',
