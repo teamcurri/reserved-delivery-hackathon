@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { QRCodeCanvas } from 'qrcode.react'
 import { Button, Heading, Text, Spinner, Colors } from '@curri/ui'
 import {
   type Blast,
@@ -17,7 +16,6 @@ import {
   initialBlend,
 } from '@hackathon/shared'
 import { useSession } from '@/lib/useSession'
-import { WEB_URL } from '@/lib/env'
 import { DispatchMap } from '@/components/DispatchMap'
 import {
   DEFAULT_ROUTE,
@@ -74,41 +72,28 @@ export default function DesktopPage() {
     )
   }
 
-  const mobileUrl = `${WEB_URL}/m/${sessionId}`
+  const qrUrl = `/qr/${sessionId}`
   const mobiles = clients.filter((c) => c.role === 'mobile')
 
   return (
     <main style={{ maxWidth: 1024, margin: '0 auto', padding: 32 }}>
-      <Heading size="h1">Dispatch console</Heading>
-      <Text size="sm" color={Colors.GREY_700}>
-        ws: {wsStatus}
-        {error ? ` — ${error}` : ''}
-      </Text>
-
-      <section
-        style={{
-          marginTop: 16,
-          padding: 16,
-          background: Colors.GREY_100,
-          borderRadius: 12,
-          display: 'flex',
-          gap: 24,
-          alignItems: 'center',
-        }}
-      >
-        <QRCodeCanvas value={mobileUrl} size={144} marginSize={2} />
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16 }}>
         <div>
+          <Heading size="h1">Dispatch console</Heading>
           <Text size="sm" color={Colors.GREY_700}>
-            drivers join here
-          </Text>
-          <Text size="md">
-            <a href={mobileUrl}>{mobileUrl}</a>
+            ws: {wsStatus}
+            {error ? ` — ${error}` : ''}
           </Text>
           <Text size="sm" color={Colors.GREY_700}>
             session <code>{sessionId}</code>
           </Text>
         </div>
-      </section>
+        <a href={qrUrl} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
+          <Button color="black" variant="outlined">
+            Open driver QR
+          </Button>
+        </a>
+      </div>
 
       <section style={{ marginTop: 16 }}>
         <DispatchMap
