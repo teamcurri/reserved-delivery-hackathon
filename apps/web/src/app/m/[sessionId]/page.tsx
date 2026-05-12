@@ -11,9 +11,9 @@ import {
   type SessionState,
 } from '@hackathon/shared'
 import { useSession } from '@/lib/useSession'
+import { DispatchMap } from '@/components/DispatchMap'
 import { OnboardingFlow, type OnboardingResult } from './onboarding/OnboardingFlow'
 import { ScoreCard } from './onboarding/ScoreCard'
-import { MapPlaceholder } from './onboarding/MapPlaceholder'
 import { RestorePrompt } from './onboarding/RestorePrompt'
 import {
   type SavedProfile,
@@ -53,7 +53,7 @@ export default function MobilePage({ params }: PageProps) {
   const trimmedName = name.trim()
   const identity = phase !== 'name' && trimmedName ? { name: trimmedName } : undefined
   const enabled = phase !== 'name' && !!trimmedName
-  const { status, error, state, clientId, dispatch } = useSession(
+  const { status, error, state, clients, clientId, dispatch } = useSession(
     sessionId,
     'mobile',
     identity,
@@ -215,18 +215,21 @@ export default function MobilePage({ params }: PageProps) {
   }
 
   // phase === 'online'
+  const me = clients.find((c) => c.clientId === clientId)
   return (
     <main style={{ maxWidth: 480, margin: '0 auto', padding: 24 }}>
       <Heading size="h2">Driver: {trimmedName}</Heading>
       {active ? (
-        <>
-          <ScoreCard
-            blend={active.blend}
-            location={active.location}
-            onReset={handleResetProfile}
-          />
-          <MapPlaceholder location={active.location} />
-        </>
+        <ScoreCard
+          blend={active.blend}
+          location={active.location}
+          onReset={handleResetProfile}
+        />
+      ) : null}
+      {me ? (
+        <section style={{ marginTop: 16 }}>
+          <DispatchMap state={state} mobiles={[me]} selfId={clientId} />
+        </section>
       ) : null}
       <CurrentStatus state={state} myClientId={clientId} dispatch={dispatch} myName={trimmedName} />
     </main>

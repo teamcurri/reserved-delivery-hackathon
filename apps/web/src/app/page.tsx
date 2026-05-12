@@ -113,7 +113,7 @@ export default function DesktopPage() {
       <section style={{ marginTop: 16 }}>
         <DispatchMap
           state={state}
-          mobiles={mobiles}
+          mobiles={state?.delivery ? mobiles : []}
           compose={{
             pickup: selectedRoute.pickup.address,
             dropoff: selectedRoute.dropoff.address,
