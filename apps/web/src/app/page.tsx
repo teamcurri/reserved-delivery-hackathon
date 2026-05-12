@@ -247,7 +247,10 @@ export default function DesktopPage() {
   )
   const pendingMobiles = mobiles.filter((c) => pendingDriverIds.has(c.clientId))
 
-  if (state?.status === 'blasting' && state.delivery) {
+  if (
+    (state?.status === 'blasting' || state?.status === 'fulfilled') &&
+    state.delivery
+  ) {
     return (
       <TrackingLayout
         state={state}
@@ -345,28 +348,6 @@ function DispatchView({
         priority={priority}
         setPriority={setPriority}
       />
-    )
-  }
-
-  if (state.status === 'fulfilled' && state.delivery) {
-    return (
-      <section>
-        <Heading size="h2">Delivery fulfilled</Heading>
-        <Text size="md">
-          claimed by <strong>{state.fulfilledBy?.identity?.name ?? 'unknown'}</strong>
-        </Text>
-        <Text size="sm" color={Colors.GREY_700}>
-          {state.delivery.pickup} → {state.delivery.dropoff}
-        </Text>
-        <div style={{ marginTop: 16 }}>
-          <Button
-            color="teal"
-            onClick={() => dispatch({ type: 'delivery:restart' })}
-          >
-            New delivery
-          </Button>
-        </div>
-      </section>
     )
   }
 
@@ -1098,6 +1079,8 @@ function TrackingLayout({
 }) {
   const effectivePriority = state.delivery?.priority ?? priority
   const deliveryId = makeDeliveryId(sessionId)
+  const fulfilled = state.status === 'fulfilled'
+  const driverName = state.fulfilledBy?.identity?.name
 
   return (
     <main
@@ -1127,6 +1110,8 @@ function TrackingLayout({
           pickup={selectedRoute.pickup.address}
           dropoff={selectedRoute.dropoff.address}
           blastCount={state.blasts.length}
+          fulfilled={fulfilled}
+          driverName={driverName}
           dispatch={dispatch}
         />
         <TrackingMapPane
@@ -1134,6 +1119,8 @@ function TrackingLayout({
           mobiles={mobiles}
           pickup={selectedRoute.pickup.address}
           dropoff={selectedRoute.dropoff.address}
+          fulfilled={fulfilled}
+          driverName={driverName}
         />
       </section>
     </main>
@@ -1190,6 +1177,8 @@ function TrackingPanel({
   pickup,
   dropoff,
   blastCount,
+  fulfilled,
+  driverName,
   dispatch,
 }: {
   deliveryId: string
@@ -1198,6 +1187,8 @@ function TrackingPanel({
   pickup: string
   dropoff: string
   blastCount: number
+  fulfilled: boolean
+  driverName: string | undefined
   dispatch: (e: { type: string; payload?: unknown }) => void
 }) {
   return (
@@ -1213,9 +1204,17 @@ function TrackingPanel({
       }}
     >
       <DetailsCard deliveryId={deliveryId} timing={timing} />
-      <ActionStack onCancel={() => dispatch({ type: 'delivery:restart' })} />
-      <BlastStatusCard priority={priority} blastCount={blastCount} />
-      <TimelineSection />
+      <ActionStack
+        fulfilled={fulfilled}
+        onCancel={() => dispatch({ type: 'delivery:restart' })}
+        onNewDelivery={() => dispatch({ type: 'delivery:restart' })}
+      />
+      {fulfilled ? (
+        <BookedCard driverName={driverName} />
+      ) : (
+        <BlastStatusCard priority={priority} blastCount={blastCount} />
+      )}
+      <TimelineSection fulfilled={fulfilled} driverName={driverName} />
       <StopsSection pickup={pickup} dropoff={dropoff} />
     </div>
   )
@@ -1315,7 +1314,15 @@ function DetailRow({
   )
 }
 
-function ActionStack({ onCancel }: { onCancel: () => void }) {
+function ActionStack({
+  fulfilled,
+  onCancel,
+  onNewDelivery,
+}: {
+  fulfilled: boolean
+  onCancel: () => void
+  onNewDelivery: () => void
+}) {
   return (
     <div
       style={{
@@ -1327,15 +1334,23 @@ function ActionStack({ onCancel }: { onCancel: () => void }) {
       <ActionButton primary icon={<IconShare />} label="Share tracking" />
       <ActionButton icon={<IconLink />} label="Copy tracking link" />
       <ActionButton icon={<IconEdit />} label="Edit delivery details" />
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-        <ActionButton icon={<IconReschedule />} label="Reschedule" />
+      {fulfilled ? (
         <ActionButton
-          icon={<IconCancel />}
-          label="Cancel"
-          destructive
-          onClick={onCancel}
+          icon={<IconLightning />}
+          label="New delivery"
+          onClick={onNewDelivery}
         />
-      </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+          <ActionButton icon={<IconReschedule />} label="Reschedule" />
+          <ActionButton
+            icon={<IconCancel />}
+            label="Cancel"
+            destructive
+            onClick={onCancel}
+          />
+        </div>
+      )}
     </div>
   )
 }
@@ -1393,6 +1408,59 @@ function ActionButton({
       <span style={{ width: 14, height: 14, display: 'inline-flex' }}>{icon}</span>
       {label}
     </button>
+  )
+}
+
+function BookedCard({ driverName }: { driverName: string | undefined }) {
+  const name = driverName ?? 'your driver'
+  return (
+    <div
+      style={{
+        border: `1px solid rgba(15,175,150,0.35)`,
+        borderRadius: 8,
+        padding: '14px 16px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 8,
+        alignItems: 'center',
+        background: 'rgba(15,175,150,0.06)',
+      }}
+    >
+      <div
+        style={{
+          width: 28,
+          height: 28,
+          borderRadius: '50%',
+          background: TRACK_ACCENT,
+          color: '#fff',
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <span style={{ width: 14, height: 14, display: 'inline-flex' }}>
+          <IconCheck />
+        </span>
+      </div>
+      <div
+        style={{
+          fontSize: 14,
+          fontWeight: 600,
+          color: TIMING_TOKENS.textPrimary,
+        }}
+      >
+        Delivery booked
+      </div>
+      <div
+        style={{
+          fontSize: 12,
+          color: TIMING_TOKENS.textSecondary,
+          textAlign: 'center',
+        }}
+      >
+        Claimed by <strong style={{ color: TIMING_TOKENS.textPrimary }}>{name}</strong>
+      </div>
+    </div>
   )
 }
 
@@ -1463,7 +1531,13 @@ function IndeterminateBar() {
   )
 }
 
-function TimelineSection() {
+function TimelineSection({
+  fulfilled,
+  driverName,
+}: {
+  fulfilled: boolean
+  driverName: string | undefined
+}) {
   const [now] = useState(() => new Date())
   const time = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
   const long = now.toLocaleString([], {
@@ -1475,6 +1549,9 @@ function TimelineSection() {
     minute: '2-digit',
     timeZoneName: 'short',
   })
+  const headline = fulfilled
+    ? `Driver claimed delivery${driverName ? ` — ${driverName}` : ''}`
+    : 'Location tracking available soon'
   return (
     <section>
       <SectionLabel>Timeline</SectionLabel>
@@ -1494,7 +1571,7 @@ function TimelineSection() {
         />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <div style={{ fontSize: 13, color: TIMING_TOKENS.textPrimary }}>
-            Location tracking available soon
+            {headline}
           </div>
           <div style={{ fontSize: 11, color: TIMING_TOKENS.textTertiary }}>
             {long}
@@ -1589,11 +1666,15 @@ function TrackingMapPane({
   mobiles,
   pickup,
   dropoff,
+  fulfilled,
+  driverName,
 }: {
   state: SessionState
   mobiles: ClientInfo[]
   pickup: string
   dropoff: string
+  fulfilled: boolean
+  driverName: string | undefined
 }) {
   return (
     <div
@@ -1611,12 +1692,18 @@ function TrackingMapPane({
         height="100%"
         borderRadius={0}
       />
-      <EtaBanner />
+      <EtaBanner fulfilled={fulfilled} driverName={driverName} />
     </div>
   )
 }
 
-function EtaBanner() {
+function EtaBanner({
+  fulfilled,
+  driverName,
+}: {
+  fulfilled: boolean
+  driverName: string | undefined
+}) {
   return (
     <div
       style={{
@@ -1646,22 +1733,52 @@ function EtaBanner() {
           borderBottom: `1px solid ${TIMING_TOKENS.borderPrimary}`,
         }}
       >
-        Pickup ETA <span style={{ color: TIMING_TOKENS.textTertiary, fontWeight: 500 }}>—</span>
+        {fulfilled ? 'Driver assigned' : 'Pickup ETA'}{' '}
+        <span style={{ color: TIMING_TOKENS.textTertiary, fontWeight: 500 }}>—</span>
       </div>
       <div
         style={{
           padding: '10px 12px',
-          background: '#1c1c1c',
+          background: fulfilled ? TRACK_ACCENT : '#1c1c1c',
           color: '#fff',
           display: 'flex',
           alignItems: 'baseline',
           gap: 8,
         }}
       >
-        <span style={{ fontSize: 22, fontWeight: 700, lineHeight: 1 }}>—</span>
-        <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', opacity: 0.85 }}>
-          Awaiting driver
-        </span>
+        {fulfilled ? (
+          <>
+            <span style={{ fontSize: 16, fontWeight: 700, lineHeight: 1.2 }}>
+              {driverName ?? 'Driver claimed'}
+            </span>
+            <span
+              style={{
+                fontSize: 10,
+                fontWeight: 600,
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                opacity: 0.85,
+              }}
+            >
+              en route
+            </span>
+          </>
+        ) : (
+          <>
+            <span style={{ fontSize: 22, fontWeight: 700, lineHeight: 1 }}>—</span>
+            <span
+              style={{
+                fontSize: 10,
+                fontWeight: 600,
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                opacity: 0.85,
+              }}
+            >
+              Awaiting driver
+            </span>
+          </>
+        )}
       </div>
     </div>
   )
