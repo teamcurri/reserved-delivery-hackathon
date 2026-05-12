@@ -4,16 +4,20 @@ import {
   type Blast,
   type ClientInfo,
   type Delivery,
+  type DeliveryDispatchPayload,
   type DispatchEvent,
   type DispatchPriority,
   type DriverEntry,
+  type LatLng,
   type Session,
   type SessionState,
   BALANCED_WAVE_SIZE,
   CLAIM_WINDOW_MS,
+  QUALITY_FALLBACK_WAVE_SIZE,
   SD_CENTER,
-  driverScore,
+  SPEED_WAVE_SIZE,
   initialBlend,
+  tierScore,
 } from '@hackathon/shared'
 
 export type ReduceContext = {
@@ -23,7 +27,7 @@ export type ReduceContext = {
 
 /**
  * Pure reducer. Pick "best driver" / "next driver" decisions live here so the
- * scoring policy is a single replaceable function.
+ * scoring policy is a single replaceable function (see `tierScore`).
  */
 export function reduce(
   state: SessionState,
@@ -59,15 +63,14 @@ export function reduce(
 
     case 'delivery:dispatch': {
       if (state.status !== 'idle') return state
-      const ranked = rankDrivers(ctx.session, state)
+      const ranked = rankDrivers(
+        ctx.session,
+        state,
+        e.payload.priority,
+        e.payload.pickupLatLng,
+      )
       if (ranked.length === 0) return state
-      const delivery: Delivery = {
-        id: nanoid(8),
-        pickup: e.payload.pickup,
-        dropoff: e.payload.dropoff,
-        priority: e.payload.priority,
-        createdAt: Date.now(),
-      }
+      const delivery: Delivery = buildDelivery(e.payload)
       const blasts = makeInitialBlasts(ranked, e.payload.priority)
       return { ...state, status: 'blasting', delivery, blasts }
     }
@@ -143,77 +146,97 @@ export function reduce(
   return state
 }
 
+function buildDelivery(payload: DeliveryDispatchPayload): Delivery {
+  return {
+    id: nanoid(8),
+    pickup: payload.pickup,
+    pickupLatLng: payload.pickupLatLng,
+    dropoff: payload.dropoff,
+    dropoffLatLng: payload.dropoffLatLng,
+    priority: payload.priority,
+    createdAt: Date.now(),
+    price: payload.price,
+    totalDistanceMi: payload.totalDistanceMi,
+    ppe: [...payload.ppe],
+    totalItems: payload.totalItems,
+    totalWeightLbs: payload.totalWeightLbs,
+    description: payload.description,
+  }
+}
+
 /**
- * After a blast resolves (reject or expire), decide what happens next.
- * - Quality path: pick the next-best unblasted driver, blast them.
- * - Balanced path: wait for the current wave to fully resolve, then launch
- *   the next wave of up to BALANCED_WAVE_SIZE unblasted drivers.
- * - Speed path: keep waiting until all outstanding blasts resolve.
- * If no work remains, drop to idle so the desktop can restart.
+ * Called when a blast resolves (reject or expire). All priorities follow the
+ * same shape: wait for the current wave to fully resolve, then launch the
+ * next wave of size N for the tier. If no unblasted drivers remain, idle
+ * out so the desktop can restart.
+ *
+ * - quality: initial wave is 1 reserved driver; fallback waves are
+ *   QUALITY_FALLBACK_WAVE_SIZE (2) non-reserved.
+ * - balanced: BALANCED_WAVE_SIZE (3) non-reserved per wave.
+ * - speed:   SPEED_WAVE_SIZE (4) non-reserved per wave.
  */
 function advanceBlasting(state: SessionState, ctx: ReduceContext, blasts: Blast[]): SessionState {
-  const priority = state.delivery?.priority
-  if (priority === 'quality') {
-    const blastedIds = new Set(blasts.map((b) => b.driverId))
-    const ranked = rankDrivers(ctx.session, state).filter((r) => !blastedIds.has(r.clientId))
-    const next = ranked[0]
-    if (next) {
-      const now = Date.now()
-      blasts = [
-        ...blasts,
-        {
-          blastId: nanoid(8),
-          driverId: next.clientId,
-          blastedAt: now,
-          expiresAt: now + CLAIM_WINDOW_MS,
-          outcome: 'pending',
-          reserved: true,
-        },
-      ]
-      return { ...state, blasts }
-    }
+  const delivery = state.delivery
+  if (!delivery) return { ...state, status: 'idle', blasts }
+
+  // Wait for the current wave to fully resolve before launching the next.
+  if (blasts.some((b) => b.outcome === 'pending')) {
+    return { ...state, blasts }
+  }
+
+  const waveSize = fallbackWaveSize(delivery.priority)
+  const blastedIds = new Set(blasts.map((b) => b.driverId))
+  const ranked = rankDrivers(
+    ctx.session,
+    state,
+    delivery.priority,
+    delivery.pickupLatLng,
+  ).filter((r) => !blastedIds.has(r.clientId))
+  const wave = ranked.slice(0, waveSize)
+
+  if (wave.length === 0) {
     return { ...state, status: 'idle', blasts }
   }
 
-  if (priority === 'balanced') {
-    // Still in current wave — let other blasts in the wave run their course.
-    if (blasts.some((b) => b.outcome === 'pending')) {
-      return { ...state, blasts }
-    }
-    const blastedIds = new Set(blasts.map((b) => b.driverId))
-    const ranked = rankDrivers(ctx.session, state).filter((r) => !blastedIds.has(r.clientId))
-    const wave = ranked.slice(0, BALANCED_WAVE_SIZE)
-    if (wave.length === 0) {
-      return { ...state, status: 'idle', blasts }
-    }
-    const now = Date.now()
-    const next: Blast[] = wave.map((r) => ({
-      blastId: nanoid(8),
-      driverId: r.clientId,
-      blastedAt: now,
-      expiresAt: now + CLAIM_WINDOW_MS,
-      outcome: 'pending',
-      reserved: false,
-    }))
-    return { ...state, blasts: [...blasts, ...next] }
-  }
+  const now = Date.now()
+  const next: Blast[] = wave.map((r) => ({
+    blastId: nanoid(8),
+    driverId: r.clientId,
+    blastedAt: now,
+    expiresAt: now + CLAIM_WINDOW_MS,
+    outcome: 'pending',
+    // Fallback waves (including quality's wave-of-2) are open blasts —
+    // first claim wins. The reserved 30s slot only applied to quality's
+    // initial single-driver blast.
+    reserved: false,
+  }))
+  return { ...state, blasts: [...blasts, ...next] }
+}
 
-  // Speed path: idle out only when nothing is still pending.
-  const anyPending = blasts.some((b) => b.outcome === 'pending')
-  if (!anyPending) {
-    return { ...state, status: 'idle', blasts }
-  }
-  return { ...state, blasts }
+function fallbackWaveSize(priority: DispatchPriority): number {
+  if (priority === 'quality') return QUALITY_FALLBACK_WAVE_SIZE
+  if (priority === 'balanced') return BALANCED_WAVE_SIZE
+  return SPEED_WAVE_SIZE
 }
 
 type RankedDriver = { clientId: string; score: number }
 
-function rankDrivers(session: Session, state: SessionState): RankedDriver[] {
+function rankDrivers(
+  session: Session,
+  state: SessionState,
+  priority: DispatchPriority,
+  pickup: LatLng,
+): RankedDriver[] {
   return session.clients
     .filter((c) => c.role === 'mobile')
     .map((c) => {
-      const blend = state.drivers[c.clientId]?.blend ?? initialBlend()
-      return { clientId: c.clientId, score: driverScore(blend) }
+      const entry = state.drivers[c.clientId]
+      const blend = entry?.blend ?? initialBlend()
+      const location = entry?.location ?? SD_CENTER
+      return {
+        clientId: c.clientId,
+        score: tierScore(blend, location, pickup, priority),
+      }
     })
     .sort((a, b) => b.score - a.score)
 }
@@ -234,7 +257,8 @@ function makeInitialBlasts(ranked: RankedDriver[], priority: DispatchPriority): 
       },
     ]
   }
-  const wave = priority === 'balanced' ? ranked.slice(0, BALANCED_WAVE_SIZE) : ranked
+  const waveSize = priority === 'balanced' ? BALANCED_WAVE_SIZE : SPEED_WAVE_SIZE
+  const wave = ranked.slice(0, waveSize)
   return wave.map((r) => ({
     blastId: nanoid(8),
     driverId: r.clientId,

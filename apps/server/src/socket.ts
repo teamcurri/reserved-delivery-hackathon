@@ -10,7 +10,7 @@ import type { SessionStore, BlastTimer } from './sessions.js'
 
 const joinSchema = z.object({
   sessionId: z.string().min(1),
-  role: z.enum(['parent', 'mobile']),
+  role: z.enum(['parent', 'mobile', 'spectator']),
   identity: z.object({ name: z.string().min(1).max(64) }).optional(),
 })
 

@@ -93,6 +93,18 @@ show Sorry, someone else claimed this delivery
 delivery dispatch algo actual
 - three tiers <balanced>, <speed>, <quality>
 - each blends distance x accept x quality 
+- show active driver being blasted on dispatch map while it happens
+
+speed
+- 4 driver waves
+- accept x distance prioritized
+
+quality
+- best driver x accept x distance w/ 30s priority
+- then waves of 2 for same blend
+
+balanced
+- waves of 3, midpoint weighting of the formula between speed and quality
 
 
 

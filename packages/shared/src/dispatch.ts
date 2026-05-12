@@ -10,10 +10,32 @@ import type {
  * between desktop UI and the server reducer — adding a new desktop action
  * means adding a variant here and a case in the reducer.
  */
+/**
+ * Cargo metadata supplied with each dispatch and persisted onto `Delivery`.
+ * Currently sourced from the route fixtures; later could come from a real
+ * order form.
+ */
+export type DeliveryDetails = {
+  price: number
+  totalDistanceMi: number
+  ppe: string[]
+  totalItems: number
+  totalWeightLbs: number
+  description: string
+}
+
+export type DeliveryDispatchPayload = {
+  pickup: string
+  pickupLatLng: LatLng
+  dropoff: string
+  dropoffLatLng: LatLng
+  priority: DispatchPriority
+} & DeliveryDetails
+
 export type DesktopDispatch =
   | {
       type: 'delivery:dispatch'
-      payload: { pickup: string; dropoff: string; priority: DispatchPriority }
+      payload: DeliveryDispatchPayload
     }
   | { type: 'delivery:restart' }
 

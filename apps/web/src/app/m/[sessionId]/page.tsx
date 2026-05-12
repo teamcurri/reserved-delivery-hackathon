@@ -12,6 +12,14 @@ import {
 } from '@hackathon/shared'
 import { useSession } from '@/lib/useSession'
 import { DispatchMap } from '@/components/DispatchMap'
+import {
+  DispatchView,
+  Header,
+  HEADER_HEIGHT,
+  MAP_HEIGHT,
+  StatusStrip,
+} from './dispatch/DispatchView'
+import { OutcomeCard } from './dispatch/OutcomeCard'
 import { OnboardingFlow, type OnboardingResult } from './onboarding/OnboardingFlow'
 import { ScoreCard } from './onboarding/ScoreCard'
 import { RestorePrompt } from './onboarding/RestorePrompt'
@@ -216,31 +224,92 @@ export default function MobilePage({ params }: PageProps) {
 
   // phase === 'online'
   const me = clients.find((c) => c.clientId === clientId)
+  const myPending = state?.blasts.find(
+    (b) => b.driverId === clientId && b.outcome === 'pending',
+  )
+
+  // Pending offer → solo full-screen dispatch view, nothing else.
+  if (myPending && state && clientId) {
+    return (
+      <DispatchView
+        blast={myPending}
+        state={state}
+        me={me}
+        clientId={clientId}
+        dispatch={dispatch}
+      />
+    )
+  }
+
+  const fulfilled = state?.status === 'fulfilled'
+  const wasMe = state?.fulfilledBy?.clientId === clientId
+  const standingBy = state?.status === 'blasting' && !myPending
+  const stripText = fulfilled
+    ? 'DELIVERY IN PROGRESS'
+    : standingBy
+      ? 'STANDING BY'
+      : 'WAITING FOR DELIVERIES'
+  const stripColor = fulfilled
+    ? wasMe
+      ? '#c8e8c4' // soft green
+      : Colors.GREY_200
+    : standingBy
+      ? '#fce7d8' // soft amber
+      : '#d6eafa' // calm blue
+
   return (
-    <main style={{ maxWidth: 480, margin: '0 auto', padding: 24 }}>
-      <Heading size="h2">Driver: {trimmedName}</Heading>
-      {active ? (
-        <ScoreCard
-          blend={active.blend}
-          location={active.location}
-          onReset={handleResetProfile}
-        />
-      ) : null}
+    <main
+      style={{
+        position: 'relative',
+        minHeight: '100vh',
+        background: '#fcfcfc',
+        paddingBottom: 24,
+      }}
+    >
+      <Header label={`Driver · ${trimmedName}`} />
+      <div style={{ height: HEADER_HEIGHT }} />
+
       {me ? (
-        <section style={{ marginTop: 16 }}>
-          <DispatchMap state={state} mobiles={[me]} selfId={clientId} />
-        </section>
+        <div style={{ padding: '8px 16px 0' }}>
+          <DispatchMap state={state} mobiles={[me]} selfId={clientId} height={MAP_HEIGHT} />
+        </div>
       ) : null}
-      <CurrentStatus state={state} myClientId={clientId} dispatch={dispatch} myName={trimmedName} />
+
+      <StatusStrip text={stripText} background={stripColor} />
+
+      <section style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {fulfilled ? (
+          <OutcomeCard wasMe={wasMe} delivery={state?.delivery} />
+        ) : active ? (
+          <ScoreCard
+            blend={active.blend}
+            location={active.location}
+            onReset={handleResetProfile}
+          />
+        ) : null}
+
+        {!fulfilled ? (
+          <CurrentStatus
+            state={state}
+            myClientId={clientId}
+            dispatch={dispatch}
+            myName={trimmedName}
+          />
+        ) : null}
+      </section>
     </main>
   )
 }
 
+/**
+ * Subtle hints below the score card on the waiting/online page. The header
+ * + status strip cover the high-level state (WAITING / STANDING BY /
+ * DELIVERY COMPLETE); this just surfaces "you passed" or "expired" detail
+ * after a previous offer resolved.
+ */
 function CurrentStatus({
   state,
   myClientId,
-  myName,
-  dispatch,
 }: {
   state: SessionState | undefined
   myClientId: string | undefined
@@ -248,70 +317,28 @@ function CurrentStatus({
   dispatch: (e: DispatchEvent) => void
 }) {
   if (!state || !myClientId) return null
+  if (state.status !== 'idle') return null
 
   const myBlasts = state.blasts.filter((b) => b.driverId === myClientId)
-  const myPending = myBlasts.find((b) => b.outcome === 'pending')
   const myLast = myBlasts[myBlasts.length - 1]
-
-  if (myPending) {
-    return <OfferView blast={myPending} state={state} dispatch={dispatch} />
-  }
-
-  if (state.status === 'fulfilled') {
-    const wasMe = state.fulfilledBy?.clientId === myClientId
-    return (
-      <section style={{ marginTop: 24 }}>
-        <Heading size="h3">{wasMe ? 'You claimed it' : 'Another driver claimed it'}</Heading>
-        {state.delivery ? (
-          <Text size="md">
-            {state.delivery.pickup} → {state.delivery.dropoff}
-          </Text>
-        ) : null}
-      </section>
-    )
-  }
-
-  if (state.status === 'blasting') {
-    return (
-      <section style={{ marginTop: 24 }}>
-        <Heading size="h3">Standing by</Heading>
-        <Text size="sm" color={Colors.GREY_700}>
-          another driver has the reserved offer
-        </Text>
-      </section>
-    )
-  }
 
   if (myLast?.outcome === 'rejected') {
     return (
-      <section style={{ marginTop: 24 }}>
-        <Heading size="h3">You passed on the last offer</Heading>
-        <Text size="sm" color={Colors.GREY_700}>
-          waiting for the next one
-        </Text>
-      </section>
+      <Text size="sm" color={Colors.GREY_700}>
+        you passed on the last offer — waiting for the next one
+      </Text>
     )
   }
 
   if (myLast?.outcome === 'expired') {
     return (
-      <section style={{ marginTop: 24 }}>
-        <Heading size="h3">Offer expired</Heading>
-        <Text size="sm" color={Colors.GREY_700}>
-          waiting for the next one
-        </Text>
-      </section>
+      <Text size="sm" color={Colors.GREY_700}>
+        last offer expired — waiting for the next one
+      </Text>
     )
   }
 
-  return (
-    <section style={{ marginTop: 24 }}>
-      <Heading size="h3">Waiting for deliveries…</Heading>
-      <Text size="sm" color={Colors.GREY_700}>
-        hi {myName}, you’re online
-      </Text>
-    </section>
-  )
+  return null
 }
 
 function OfferView({
