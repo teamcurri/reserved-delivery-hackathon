@@ -6,10 +6,12 @@ import {
   type Delivery,
   type DispatchEvent,
   type DispatchPriority,
+  type DriverEntry,
   type Session,
   type SessionState,
   BALANCED_WAVE_SIZE,
   CLAIM_WINDOW_MS,
+  SD_CENTER,
   driverScore,
   initialBlend,
 } from '@hackathon/shared'
@@ -34,7 +36,25 @@ export function reduce(
     case 'driver:setBlend': {
       const driverId = ctx.by?.clientId
       if (!driverId) return state
-      return { ...state, drivers: { ...state.drivers, [driverId]: e.payload } }
+      const prev = state.drivers[driverId]
+      const next: DriverEntry = {
+        blend: e.payload.blend,
+        location: e.payload.location,
+        onboarding: prev?.onboarding,
+      }
+      return { ...state, drivers: { ...state.drivers, [driverId]: next } }
+    }
+
+    case 'driver:onboarding': {
+      const driverId = ctx.by?.clientId
+      if (!driverId) return state
+      const prev = state.drivers[driverId]
+      const next: DriverEntry = {
+        blend: prev?.blend ?? initialBlend(),
+        location: prev?.location ?? SD_CENTER,
+        onboarding: e.payload,
+      }
+      return { ...state, drivers: { ...state.drivers, [driverId]: next } }
     }
 
     case 'delivery:dispatch': {
@@ -192,7 +212,7 @@ function rankDrivers(session: Session, state: SessionState): RankedDriver[] {
   return session.clients
     .filter((c) => c.role === 'mobile')
     .map((c) => {
-      const blend = state.drivers[c.clientId] ?? initialBlend()
+      const blend = state.drivers[c.clientId]?.blend ?? initialBlend()
       return { clientId: c.clientId, score: driverScore(blend) }
     })
     .sort((a, b) => b.score - a.score)

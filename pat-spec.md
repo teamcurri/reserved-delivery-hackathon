@@ -34,3 +34,65 @@ desktop states
 next steps
 - build booking UI
 - driver signup form to see how good you are
+- make driver signup better
+- remove notification that delivery was claimed for priority quality
+- remove the nextjs dev tools thing
+
+presentation
+- how to drive the estimate / accept logic
+
+
+
+
+driver side
+- maps will be covered
+- quiz for are you a good driver, shows 1-5<star> for quality, reaction time test for acceptance score
+
+click on the box (box and fox pictures)
+do you wear a seatbelt (seatbelt emoji)
+what speed would you drive here with silder (school zone speed limit)
+did you call your mom on sunday (flower emoji)
+
+
+reaction time test
+screen flashes white after 2-4s delay, time click speed
+
+
+- display your current score, placeholder for your car in map centered in san diego
+
+
+- external provided:: map install, placeholder rendered routes in SD
+- me to provide:: driver location rendering on map, quality / accept / distance blend that blasts drivers
+
+
+stretch goals
+- show drivers signing up with progress
+- god mode map with all drivers, then step into booking demo flow
+- demo mode mobile that is guaranteed to get the first delivery with a checkbox on dispatch side and hidden route on mobile side
+
+
+now active
+- show you in map
+
+
+claim process
+- show countdown while you can view delivery details
+- detail level TBD, only work on claim countdown for now
+
+Reserved Delivery
+We think you're the best driver for this delivery. Here's your chance to secure the gig.
+00:30s countdown at top
+Accept / Reject buttons
+
+Blast Delivery
+current flow, can be claimed whenever
+show Sorry, someone else claimed this delivery
+
+
+
+delivery dispatch algo actual
+- three tiers <balanced>, <speed>, <quality>
+- each blends distance x accept x quality 
+
+
+

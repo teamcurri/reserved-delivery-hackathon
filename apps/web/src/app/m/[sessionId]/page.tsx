@@ -4,45 +4,163 @@ import { useEffect, useRef, useState, use } from 'react'
 import { Button, Heading, Text, InputText, Spinner, Colors } from '@curri/ui'
 import {
   type Blast,
+  type DispatchEvent,
   type DriverBlend,
+  type LatLng,
+  type QuizAnswers,
   type SessionState,
-  approxMiles,
-  driverScore,
-  initialBlend,
 } from '@hackathon/shared'
 import { useSession } from '@/lib/useSession'
+import { OnboardingFlow, type OnboardingResult } from './onboarding/OnboardingFlow'
+import { ScoreCard } from './onboarding/ScoreCard'
+import { MapPlaceholder } from './onboarding/MapPlaceholder'
+import { RestorePrompt } from './onboarding/RestorePrompt'
+import {
+  type SavedProfile,
+  clearProfile,
+  hasStaleProfile,
+  loadProfile,
+  saveProfile,
+} from './onboarding/profileStorage'
 
 type PageProps = { params: Promise<{ sessionId: string }> }
 
+type Phase = 'name' | 'onboarding' | 'online'
+
+type ActiveProfile = {
+  blend: DriverBlend
+  location: LatLng
+  quizAnswers: Required<QuizAnswers>
+  reactionMs: number
+}
+
 export default function MobilePage({ params }: PageProps) {
   const { sessionId } = use(params)
+
   const [name, setName] = useState('')
-  const [submitted, setSubmitted] = useState(false)
+  const [phase, setPhase] = useState<Phase>('name')
+  const [savedProfile, setSavedProfile] = useState<SavedProfile | null | undefined>(undefined)
+  const [staleWarn, setStaleWarn] = useState(false)
+  const [active, setActive] = useState<ActiveProfile | null>(null)
+  const restorePending = useRef(false)
+  const firstOnboardingSent = useRef(false)
+
+  useEffect(() => {
+    setSavedProfile(loadProfile())
+    setStaleWarn(hasStaleProfile())
+  }, [])
 
   const trimmedName = name.trim()
-  const identity = submitted && trimmedName ? { name: trimmedName } : undefined
+  const identity = phase !== 'name' && trimmedName ? { name: trimmedName } : undefined
+  const enabled = phase !== 'name' && !!trimmedName
   const { status, error, state, clientId, dispatch } = useSession(
     sessionId,
     'mobile',
     identity,
-    submitted && !!trimmedName,
+    enabled,
   )
 
-  const join = () => {
-    if (trimmedName) setSubmitted(true)
+  // Once the join completes (clientId set), do per-phase first emits.
+  useEffect(() => {
+    if (!clientId) return
+
+    if (restorePending.current && active) {
+      // Restore path: tell server the driver is fully onboarded with saved values.
+      dispatch({
+        type: 'driver:onboarding',
+        payload: { step: 'done', answers: active.quizAnswers },
+      })
+      dispatch({
+        type: 'driver:setBlend',
+        payload: { blend: active.blend, location: active.location },
+      })
+      restorePending.current = false
+      return
+    }
+
+    if (phase === 'onboarding' && !firstOnboardingSent.current) {
+      dispatch({
+        type: 'driver:onboarding',
+        payload: { step: 'quiz:box', answers: {} },
+      })
+      firstOnboardingSent.current = true
+    }
+  }, [clientId, phase, active, dispatch])
+
+  const handleRestore = () => {
+    if (!savedProfile) return
+    setName(savedProfile.name)
+    setActive({
+      blend: savedProfile.blend,
+      location: savedProfile.location,
+      quizAnswers: savedProfile.quizAnswers,
+      reactionMs: savedProfile.reactionMs,
+    })
+    restorePending.current = true
+    setPhase('online')
   }
 
-  if (!submitted) {
+  const handleStartOver = () => {
+    clearProfile()
+    setSavedProfile(null)
+    setStaleWarn(false)
+  }
+
+  const handleNameSubmit = () => {
+    if (!trimmedName) return
+    setPhase('onboarding')
+  }
+
+  const handleOnboardingComplete = (result: OnboardingResult) => {
+    setActive(result)
+    saveProfile({
+      version: 1,
+      name: trimmedName,
+      blend: result.blend,
+      location: result.location,
+      reactionMs: result.reactionMs,
+      quizAnswers: result.quizAnswers,
+    })
+    dispatch({
+      type: 'driver:setBlend',
+      payload: { blend: result.blend, location: result.location },
+    })
+    setPhase('online')
+  }
+
+  const handleResetProfile = () => {
+    clearProfile()
+    if (typeof window !== 'undefined') window.location.reload()
+  }
+
+  if (phase === 'name') {
     return (
       <main style={{ maxWidth: 480, margin: '0 auto', padding: 24 }}>
         <Heading size="h2">Join session</Heading>
         <Text size="sm" color={Colors.GREY_700}>
           <code>{sessionId}</code>
         </Text>
+
+        {staleWarn ? (
+          <Text size="sm" color={Colors.RED_500}>
+            saved profile is from an older build — please redo onboarding
+          </Text>
+        ) : null}
+
+        {savedProfile ? (
+          <div style={{ marginTop: 16 }}>
+            <RestorePrompt
+              profile={savedProfile}
+              onRestore={handleRestore}
+              onStartOver={handleStartOver}
+            />
+          </div>
+        ) : null}
+
         <form
           onSubmit={(e) => {
             e.preventDefault()
-            join()
+            handleNameSubmit()
           }}
           style={{ marginTop: 24, display: 'flex', flexDirection: 'column', gap: 16 }}
         >
@@ -53,22 +171,13 @@ export default function MobilePage({ params }: PageProps) {
             placeholder="e.g. Patrick"
             autoFocus
           />
-          <Button type="submit" onClick={join} isFullWidth>
-            Join
+          <Button type="submit" onClick={handleNameSubmit} isFullWidth>
+            Next
           </Button>
         </form>
         <Text size="sm" color={Colors.GREY_700}>
           {trimmedName ? `will join as "${trimmedName}"` : 'type a name first'}
         </Text>
-      </main>
-    )
-  }
-
-  if (status === 'connecting' || status === 'idle') {
-    return (
-      <main style={{ padding: 24, display: 'flex', alignItems: 'center', gap: 12 }}>
-        <Spinner />
-        <Text size="md">Connecting…</Text>
       </main>
     )
   }
@@ -84,84 +193,43 @@ export default function MobilePage({ params }: PageProps) {
     )
   }
 
+  if (status === 'connecting' || status === 'idle' || !clientId) {
+    return (
+      <main style={{ padding: 24, display: 'flex', alignItems: 'center', gap: 12 }}>
+        <Spinner />
+        <Text size="md">Connecting…</Text>
+      </main>
+    )
+  }
+
+  if (phase === 'onboarding') {
+    return (
+      <main style={{ maxWidth: 480, margin: '0 auto', padding: 24 }}>
+        <Heading size="h2">Hi, {trimmedName}</Heading>
+        <Text size="sm" color={Colors.GREY_700}>
+          quick onboarding before you go online
+        </Text>
+        <OnboardingFlow dispatch={dispatch} onComplete={handleOnboardingComplete} />
+      </main>
+    )
+  }
+
+  // phase === 'online'
   return (
     <main style={{ maxWidth: 480, margin: '0 auto', padding: 24 }}>
       <Heading size="h2">Driver: {trimmedName}</Heading>
-
-      <BlendEditor
-        blend={state?.drivers[clientId ?? ''] ?? initialBlend()}
-        onChange={(blend) => dispatch({ type: 'driver:setBlend', payload: blend })}
-      />
-
+      {active ? (
+        <>
+          <ScoreCard
+            blend={active.blend}
+            location={active.location}
+            onReset={handleResetProfile}
+          />
+          <MapPlaceholder location={active.location} />
+        </>
+      ) : null}
       <CurrentStatus state={state} myClientId={clientId} dispatch={dispatch} myName={trimmedName} />
     </main>
-  )
-}
-
-function BlendEditor({
-  blend,
-  onChange,
-}: {
-  blend: DriverBlend
-  onChange: (b: DriverBlend) => void
-}) {
-  // Local mirror so the slider tracks input smoothly while we debounce server emits.
-  const [local, setLocal] = useState(blend)
-  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-
-  useEffect(() => {
-    // Sync down from server-pushed state (e.g. another tab from same driver).
-    setLocal(blend)
-  }, [blend.distance, blend.accept, blend.quality])
-
-  const emit = (next: DriverBlend) => {
-    if (timer.current) clearTimeout(timer.current)
-    timer.current = setTimeout(() => onChange(next), 150)
-  }
-
-  const set = (key: keyof DriverBlend) => (v: number) => {
-    const next = { ...local, [key]: v }
-    setLocal(next)
-    emit(next)
-  }
-
-  return (
-    <section style={{ marginTop: 24 }}>
-      <Heading size="h4">Your blend</Heading>
-      <Slider label="Distance (1 = nearby)" value={local.distance} onChange={set('distance')} />
-      <Slider label="Accept probability" value={local.accept} onChange={set('accept')} />
-      <Slider label="Quality" value={local.quality} onChange={set('quality')} />
-      <Text size="sm" color={Colors.GREY_700}>
-        score {driverScore(local).toFixed(2)} · approx {approxMiles(local)} mi away
-      </Text>
-    </section>
-  )
-}
-
-function Slider({
-  label,
-  value,
-  onChange,
-}: {
-  label: string
-  value: number
-  onChange: (v: number) => void
-}) {
-  return (
-    <label style={{ display: 'block', marginTop: 12 }}>
-      <Text size="sm">
-        {label} — {value.toFixed(2)}
-      </Text>
-      <input
-        type="range"
-        min={0}
-        max={100}
-        step={1}
-        value={Math.round(value * 100)}
-        onChange={(e) => onChange(Number(e.target.value) / 100)}
-        style={{ width: '100%' }}
-      />
-    </label>
   )
 }
 
@@ -174,7 +242,7 @@ function CurrentStatus({
   state: SessionState | undefined
   myClientId: string | undefined
   myName: string
-  dispatch: (e: { type: string; payload?: unknown }) => void
+  dispatch: (e: DispatchEvent) => void
 }) {
   if (!state || !myClientId) return null
 
@@ -201,7 +269,6 @@ function CurrentStatus({
   }
 
   if (state.status === 'blasting') {
-    // Delivery in flight but not our offer (quality path, another driver is up).
     return (
       <section style={{ marginTop: 24 }}>
         <Heading size="h3">Standing by</Heading>
@@ -212,7 +279,6 @@ function CurrentStatus({
     )
   }
 
-  // idle: surface our last outcome if we had one
   if (myLast?.outcome === 'rejected') {
     return (
       <section style={{ marginTop: 24 }}>
@@ -252,7 +318,7 @@ function OfferView({
 }: {
   blast: Blast
   state: SessionState
-  dispatch: (e: { type: string; payload?: unknown }) => void
+  dispatch: (e: DispatchEvent) => void
 }) {
   const remaining = useCountdown(blast.expiresAt)
   const secs = Math.ceil(remaining / 1000)
