@@ -12,6 +12,7 @@ import {
   InputText,
 } from '@curri/ui'
 import {
+  type Blast,
   type ClientInfo,
   type DispatchPriority,
   type SessionState,
@@ -1058,22 +1059,142 @@ const TRACK_TIMING_LABEL: Record<DispatchPriority, string> = {
   quality: 'Quality',
 }
 
-const TRACK_BLAST_COPY: Record<
-  DispatchPriority,
-  { title: string; sub: string }
-> = {
-  speed: {
-    title: 'Blasting available drivers',
-    sub: 'Finding 55 nearby providers…',
-  },
-  balanced: {
-    title: 'Matching drivers in waves',
-    sub: 'Offering to your best matches first…',
-  },
-  quality: {
-    title: 'Pinging top-rated driver',
-    sub: 'Waiting on your highest-rated nearby driver…',
-  },
+type BlastStatusTone = 'info' | 'progress' | 'warning'
+
+type BlastStatusCopy = {
+  title: string
+  sub: string
+  tone: BlastStatusTone
+}
+
+/**
+ * Derive the title/sub for the tracking-page status card from real blast
+ * activity. The shape changes with priority because each tier dispatches
+ * differently:
+ *
+ *  - quality: 1 reserved driver, then fallback waves of 2
+ *  - balanced: waves of 3
+ *  - speed: waves of 4 (first claim wins)
+ *
+ * Outcomes (`pending` / `rejected` / `expired`) drive the copy so the panel
+ * keeps narrating what's happening as drivers respond.
+ */
+function getBlastStatusCopy(
+  priority: DispatchPriority,
+  blasts: Blast[],
+  mobiles: ClientInfo[],
+): BlastStatusCopy {
+  const pendingCount = blasts.filter((b) => b.outcome === 'pending').length
+  const rejectedCount = blasts.filter((b) => b.outcome === 'rejected').length
+  const expiredCount = blasts.filter((b) => b.outcome === 'expired').length
+  const closedCount = rejectedCount + expiredCount
+  const total = blasts.length
+  const last = blasts[blasts.length - 1]
+
+  const driverName = (id: string | undefined): string | undefined => {
+    if (!id) return undefined
+    const m = mobiles.find((c) => c.clientId === id)
+    return m?.identity?.name?.trim() || undefined
+  }
+
+  if (priority === 'quality') {
+    if (total === 0) {
+      return {
+        title: 'Selecting top-rated driver',
+        sub: 'Ranking nearby providers…',
+        tone: 'info',
+      }
+    }
+    if (last?.outcome === 'pending') {
+      const name = driverName(last.driverId)
+      if (last.reserved) {
+        return {
+          title: name ? `Reserved for ${name}` : 'Pinging top-rated driver',
+          sub: '30-second exclusive claim window…',
+          tone: 'progress',
+        }
+      }
+      return {
+        title:
+          pendingCount > 1
+            ? `Pinging next ${pendingCount} drivers`
+            : name
+              ? `Pinging ${name}`
+              : 'Pinging next-best driver',
+        sub:
+          closedCount > 0
+            ? `${closedCount} declined • expanding the search…`
+            : 'Reviewing the offer…',
+        tone: 'progress',
+      }
+    }
+    const lastName = driverName(last?.driverId)
+    if (last?.outcome === 'expired') {
+      return {
+        title: lastName ? `${lastName} didn’t respond` : 'No response yet',
+        sub: 'Trying next-best match…',
+        tone: 'warning',
+      }
+    }
+    return {
+      title: lastName ? `${lastName} declined` : 'Driver declined',
+      sub: 'Trying next-best match…',
+      tone: 'warning',
+    }
+  }
+
+  if (priority === 'balanced') {
+    if (total === 0) {
+      return {
+        title: 'Matching drivers in waves',
+        sub: 'Building first wave…',
+        tone: 'info',
+      }
+    }
+    if (pendingCount > 0) {
+      return {
+        title: `Offering to ${pendingCount} ${pendingCount === 1 ? 'driver' : 'drivers'}`,
+        sub:
+          closedCount > 0
+            ? `${closedCount} declined so far • waiting on this wave…`
+            : 'Best matches reviewing the offer…',
+        tone: 'progress',
+      }
+    }
+    return {
+      title: `${closedCount} ${closedCount === 1 ? 'driver' : 'drivers'} declined`,
+      sub: 'Expanding to the next wave…',
+      tone: 'warning',
+    }
+  }
+
+  // speed
+  if (total === 0) {
+    return {
+      title: 'Blasting available drivers',
+      sub: 'Searching for nearby providers…',
+      tone: 'info',
+    }
+  }
+  if (pendingCount > 0 && closedCount === 0) {
+    return {
+      title: `Offered to ${total} ${total === 1 ? 'driver' : 'drivers'}`,
+      sub: 'First to claim wins the run…',
+      tone: 'progress',
+    }
+  }
+  if (pendingCount > 0) {
+    return {
+      title: `${pendingCount} reviewing • ${closedCount} passed`,
+      sub: 'Still waiting on a claim…',
+      tone: 'progress',
+    }
+  }
+  return {
+    title: `${closedCount} ${closedCount === 1 ? 'driver' : 'drivers'} passed`,
+    sub: 'Pinging more drivers nearby…',
+    tone: 'warning',
+  }
 }
 
 function makeDeliveryId(sessionId: string): string {
@@ -1126,7 +1247,8 @@ function TrackingLayout({
           priority={effectivePriority}
           pickup={selectedRoute.pickup.address}
           dropoff={selectedRoute.dropoff.address}
-          blastCount={state.blasts.length}
+          blasts={state.blasts}
+          mobiles={mobiles}
           dispatch={dispatch}
         />
         <TrackingMapPane
@@ -1189,7 +1311,8 @@ function TrackingPanel({
   priority,
   pickup,
   dropoff,
-  blastCount,
+  blasts,
+  mobiles,
   dispatch,
 }: {
   deliveryId: string
@@ -1197,7 +1320,8 @@ function TrackingPanel({
   priority: DispatchPriority
   pickup: string
   dropoff: string
-  blastCount: number
+  blasts: Blast[]
+  mobiles: ClientInfo[]
   dispatch: (e: { type: string; payload?: unknown }) => void
 }) {
   return (
@@ -1214,7 +1338,7 @@ function TrackingPanel({
     >
       <DetailsCard deliveryId={deliveryId} timing={timing} />
       <ActionStack onCancel={() => dispatch({ type: 'delivery:restart' })} />
-      <BlastStatusCard priority={priority} blastCount={blastCount} />
+      <BlastStatusCard priority={priority} blasts={blasts} mobiles={mobiles} />
       <TimelineSection />
       <StopsSection pickup={pickup} dropoff={dropoff} />
     </div>
@@ -1398,16 +1522,18 @@ function ActionButton({
 
 function BlastStatusCard({
   priority,
-  blastCount,
+  blasts,
+  mobiles,
 }: {
   priority: DispatchPriority
-  blastCount: number
+  blasts: Blast[]
+  mobiles: ClientInfo[]
 }) {
-  const copy = TRACK_BLAST_COPY[priority]
-  const subWithCount =
-    priority === 'speed'
-      ? copy.sub.replace('55', String(Math.max(blastCount, 12)))
-      : copy.sub
+  const copy = useMemo(
+    () => getBlastStatusCopy(priority, blasts, mobiles),
+    [priority, blasts, mobiles],
+  )
+  const barColor = copy.tone === 'warning' ? '#c98a2a' : TRACK_ACCENT
   return (
     <div
       style={{
@@ -1424,15 +1550,15 @@ function BlastStatusCard({
       <div style={{ fontSize: 13, fontWeight: 500, color: TIMING_TOKENS.textPrimary }}>
         {copy.title}
       </div>
-      <IndeterminateBar />
-      <div style={{ fontSize: 12, color: TIMING_TOKENS.textTertiary }}>
-        {subWithCount}
+      <IndeterminateBar color={barColor} />
+      <div style={{ fontSize: 12, color: TIMING_TOKENS.textTertiary, textAlign: 'center' }}>
+        {copy.sub}
       </div>
     </div>
   )
 }
 
-function IndeterminateBar() {
+function IndeterminateBar({ color = TRACK_ACCENT }: { color?: string }) {
   return (
     <div
       style={{
@@ -1450,9 +1576,10 @@ function IndeterminateBar() {
           top: 0,
           bottom: 0,
           width: '40%',
-          background: TRACK_ACCENT,
+          background: color,
           borderRadius: 999,
           animation: 'trackBlast 1.6s cubic-bezier(.4,0,.6,1) infinite',
+          transition: 'background .25s ease',
         }}
       />
       <style>{`@keyframes trackBlast {
