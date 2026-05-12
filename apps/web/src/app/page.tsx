@@ -8,6 +8,7 @@ import {
   type ClientInfo,
   type DispatchPriority,
   type SessionState,
+  BALANCED_WAVE_SIZE,
   approxMiles,
   driverScore,
   initialBlend,
@@ -254,7 +255,9 @@ function ComposeForm({
       <Text size="sm" color={Colors.GREY_700}>
         {priority === 'quality'
           ? 'one driver at a time, 30s reserved claim window per driver, fallback to next-best on reject/expire'
-          : 'all drivers blasted at once, first claim wins'}
+          : priority === 'balanced'
+            ? `top ${BALANCED_WAVE_SIZE} drivers blasted in parallel, first claim wins; next wave on full wave reject/expire`
+            : 'all drivers blasted at once, first claim wins'}
       </Text>
 
       <div style={{ marginTop: 16 }}>
@@ -319,6 +322,7 @@ function PriorityRadio({
 }) {
   const opts: Array<{ key: DispatchPriority; label: string }> = [
     { key: 'quality', label: 'Quality' },
+    { key: 'balanced', label: 'Balanced' },
     { key: 'speed', label: 'Speed' },
   ]
   return (
@@ -366,8 +370,9 @@ function BlastingView({
         <QualityPing blast={pending[0]} mobiles={mobiles} state={state} />
       ) : null}
 
-      {delivery.priority === 'speed' ? (
+      {delivery.priority !== 'quality' ? (
         <Text size="md" style={{ marginTop: 12 }}>
+          {delivery.priority === 'balanced' ? 'wave: ' : ''}
           blasted {pending.length} {pending.length === 1 ? 'driver' : 'drivers'}
         </Text>
       ) : null}
