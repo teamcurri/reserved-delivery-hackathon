@@ -1,0 +1,90 @@
+{
+  "name": "@curri/ui",
+  "version": "2.0.1",
+  "private": true,
+  "description": "Provides reusable React UI components for use throughout our frontend apps.",
+  "license": "UNLICENSED",
+  "author": "",
+  "main": "dist/index.js",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "_phase:build": "heft build",
+    "_phase:lint": "heft lint",
+    "_phase:lint-fix": "heft lint --fix",
+    "_phase:prebuild": "echo 'done'",
+    "build": "tsc",
+    "build-storybook": "storybook build",
+    "build:swc": "pnpm run build",
+    "build:watch": "tsc --watch",
+    "copy-assets": "node scripts/copy-assets.mjs",
+    "deploy-storybook": "storybook-to-ghpages",
+    "dev": "pnpm run build && npm run storybook",
+    "icons:generate": "node scripts/generate-icons.mjs && npm run copy-assets",
+    "prepublishOnly": "pnpm run build",
+    "storybook": "storybook dev -p 6006",
+    "svg:generate": "svgr --typescript ./src/assets/svgs-raw/*.svg --out-dir ./src/components/Svgs/components",
+    "test": "echo 'no tests'",
+    "test:unit": "echo 'no tests'"
+  },
+  "dependencies": {
+    "@storybook/addon-a11y": "8.2.9",
+    "hex-rgb": "4.3.0",
+    "react-copy-to-clipboard": "5.0.4",
+    "react-media-query-hoc": "2.1.1"
+  },
+  "peerDependencies": {
+    "react": ">=18.0.0",
+    "react-dom": ">=18.0.0",
+    "react-is": ">=18.0.0",
+    "styled-components": ">=6.1.0"
+  },
+  "devDependencies": {
+    "@babel/core": "7.13.16",
+    "@curri/build-rig": "workspace:*",
+    "@rushstack/heft": "~0.74.0",
+    "@storybook/addon-actions": "8.2.9",
+    "@storybook/addon-designs": "8.0.3",
+    "@storybook/addon-docs": "8.2.9",
+    "@storybook/addon-essentials": "8.2.9",
+    "@storybook/addon-links": "8.2.9",
+    "@storybook/addon-mdx-gfm": "8.2.9",
+    "@storybook/addon-webpack5-compiler-swc": "1.0.5",
+    "@storybook/channels": "8.2.9",
+    "@storybook/components": "8.2.9",
+    "@storybook/core-events": "8.2.9",
+    "@storybook/manager-api": "8.2.9",
+    "@storybook/preview-api": "8.2.9",
+    "@storybook/react": "8.2.9",
+    "@storybook/react-webpack5": "8.2.9",
+    "@storybook/storybook-deployer": "2.8.16",
+    "@storybook/theming": "8.2.9",
+    "@svgr/cli": "6.3.1",
+    "@types/jest": "~29.5.14",
+    "@types/node": "~24.0.1",
+    "@types/react": "19.0.10",
+    "@types/react-dom": "19.0.4",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "react-is": "19.0.0",
+    "styled-components": "6.1.18",
+    "babel-loader": "8.2.5",
+    "execa": "6.1.0",
+    "jest": "29.7.0",
+    "prettier": "3.6.2",
+    "require-from-string": "2.0.2",
+    "storybook": "8.2.9",
+    "ts-jest": "29.1.1",
+    "typescript": "5.8.2",
+    "webpack": "5.94.0"
+  },
+  "buildRig": {
+    "rigPackageName": "@curri/build-rig"
+  },
+  "overrides": {
+    "@storybook/storybook-deployer": {
+      "parse-url": "8.1.0"
+    }
+  }
+}

@@ -1,0 +1,31 @@
+import pjson from '../../../../package.json';
+import { Meta, Canvas, Preview, Source } from '@storybook/blocks';
+import { CurriStorybookWrapper } from '../../curri-storybook-components'
+import { Heading, Paragraph, Spacer } from '../../..'
+
+import '../../curri-storybook-components/default-mdx-styles.css'
+
+<Meta
+  title="About/Creating UI Elements"
+  parameters={{
+  previewTabs: {
+      canvas: {
+        hidden: true,
+      },
+    },
+  viewMode: 'docs' }}
+/>
+
+<CurriStorybookWrapper title="Creating UI Elements" description="All UI elements (foundations/layout/components)">
+  <Heading size="h4" as="h2" fontWeight="medium">Creating New UI Elements</Heading>
+
+  <Spacer value={15} />
+
+  <Paragraph size="medium">
+    All new Curri UI Elements addition will exist within src in the Curri UI library. Determine where the UI will exist within the foundation, layout or component folder.
+    Each new element will have a folder with the name of the Element, the base tsx file with the name of the element, and the index to export the element. Ensure they are referenced
+    and exported within their respective parent folder (i.e. components/layouts/foundations). Finally, ensure they are referenced within the src/index.ts file. Look into the Spinner component
+    for an example for reference. Following any new elements, please ensure we create a storybook for documentation of usage. Ensure also that the new UI Elements follow the Curri Branding.
+    Reach out to design if you have any questions.
+  </Paragraph>
+</CurriStorybookWrapper>

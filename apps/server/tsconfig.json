@@ -1,0 +1,10 @@
+{
+  "extends": "@hackathon/tsconfig/base.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "types": ["node"],
+    "jsx": "preserve"
+  },
+  "include": ["src/**/*"]
+}

@@ -1,0 +1,26 @@
+node_modules/
+.pnpm-store/
+.next/
+dist/
+build/
+out/
+
+.env
+.env.local
+*.local
+
+.DS_Store
+.idea/
+.vscode/
+
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+.turbo/
+.cache/
+
+# ngrok
+.ngrok/

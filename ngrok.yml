@@ -1,0 +1,12 @@
+version: "3"
+agent:
+  # Add your authtoken via `ngrok config add-authtoken <token>`.
+
+# Free tier supports a single simultaneous tunnel. Express on :4000 is the
+# public gateway: it serves /sessions, /webhooks, /health, /socket.io directly
+# and reverse-proxies everything else to Next.js on :3000 (including the
+# WebSocket upgrade for HMR in dev).
+tunnels:
+  web:
+    proto: http
+    addr: 4000

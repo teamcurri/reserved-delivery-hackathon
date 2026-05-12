@@ -1,0 +1,55 @@
+import pjson from '../../../../package.json';
+import { Meta, Canvas, Preview } from '@storybook/blocks';
+import { CurriStorybookWrapper } from '../../curri-storybook-components'
+import { Heading, Paragraph, Spacer } from '../../..'
+
+import '../../curri-storybook-components/default-mdx-styles.css'
+
+<Meta
+  title="About/Introduction"
+  parameters={{
+  previewTabs: {
+      canvas: {
+        hidden: true,
+      },
+    },
+  viewMode: 'docs' }}
+/>
+
+<CurriStorybookWrapper title="Curri UI">
+  <Heading size="h4" as="h2" fontWeight="medium">Welcome to Curri UI</Heading>
+
+  <Spacer value={10} />
+
+  <code>Version: {pjson.version}</code>
+
+  <Spacer value={24} />
+
+  <Paragraph size="medium">
+    Curri UI is Curri's component library to simplify the development of interfaces and provide a consistent, reliable, accessible experience across applications.
+  </Paragraph>
+
+  <Spacer value={24} />
+
+  <Paragraph size="medium">
+    Components are built in React and styled with <a href="https://styled-components.com" target="_blank">styled-components</a>.
+  </Paragraph>
+
+  <Spacer value={24} />
+
+  <Paragraph size="medium">
+    Curri UI components are built following our <a href="https://brand.curri.com/" target="_blank">Curri Brand Guidelines</a>.
+    They are designed and created within our <a href="https://www.figma.com/file/bcmucq3rslzDXfTkPIsFqG/%E2%9D%96-Curri-UI-Library-v0.1">Curri UI Library</a> in Figma.
+    Browse example of Curi UI components by navigating the stories in the sidebar.
+  </Paragraph>
+
+  <Spacer value={24} />
+
+  <Heading size="h4" as="h2" fontWeight="medium">Deploying to Github Pages:</Heading>
+
+  <Spacer value={24} />
+
+  <Paragraph size="medium">
+    Storybook is deployed to Curri's Github Pages automatically via GitHub Action. The github page will be deployed to <a href="https://teamcurri.github.io/curri" target="_blank">https://teamcurri.github.io/curri</a>.
+  </Paragraph>
+</CurriStorybookWrapper>

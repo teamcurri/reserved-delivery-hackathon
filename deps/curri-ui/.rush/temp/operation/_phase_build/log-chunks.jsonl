@@ -1,0 +1,6 @@
+{"kind":"O","text":"Invoking: heft build \n"}
+{"kind":"O","text":" ---- build started ---- \n"}
+{"kind":"O","text":"[build:typescript] Using TypeScript version 5.8.2\n"}
+{"kind":"O","text":"[build:typescript] All requested file copy operations are up to date. Nothing to do.\n"}
+{"kind":"O","text":" ---- build finished (4.863s) ---- \n"}
+{"kind":"O","text":"-------------------- Finished (4.866s) --------------------\n"}

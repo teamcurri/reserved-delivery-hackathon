@@ -1,0 +1,197 @@
+import pjson from '../../../../package.json';
+import { Meta, Canvas, Preview, Source } from '@storybook/blocks';
+import { CurriStorybookWrapper } from '../../curri-storybook-components'
+import { Heading, Paragraph, Spacer } from '../../..'
+
+import '../../curri-storybook-components/default-mdx-styles.css'
+export const storyCode = `
+{
+  ...
+  docs: {
+    page: () => (
+      <CurriStorybookWrapper
+      title="Creating Stories for your UI Component"
+      description="A brief description of creating stories."
+      >
+        <Heading size="h4" as="h2" fontWeight="medium">How to create a story</Heading>
+        <Paragraph size="medium">
+          This is how you create a story
+        </Paragraph>
+        <StorybookComponent />
+      </CurriStorybookWrapper>
+  }
+}
+`
+
+export const defaultConfigCode = `
+export default {
+  /*
+    argTypes: Configurable component props that can be toggled within the Sandbox tab.
+    If you do not provide these, it will automatically generate the argtypes based on what the component props.
+  */
+  argTypes: {
+    color: {
+      // Defines the addon Controls to play with the props of the components. Look into https://storybook.js.org/docs/react/essentials/controls
+      // for a list of possible controls
+      control: {
+        options: ['black', 'teal'],
+        type: 'select',
+      },
+      defaultValue: 'black',
+    },
+    variant: {
+      control: {
+        options: ['filled', 'outlined'],
+        type: 'select',
+      },
+      defaultValue: 'filled',
+    },
+  },
+  /*
+    component: Component you wish to render as a story
+  */
+  component: Button,
+  /*
+    decorators: Wraps a story in extra “rendering” functionality.Currently we have two decorators that we use, "withDesign" and "jsxDecorator".
+    withDesign => ties a figma link to your Addons
+    jsxDecorator => Displays the component JSX within the Addons
+  */
+  decorators: [withDesign, jsxDecorator],
+  // Parameters are a set of static, named metadata about a story, typically used to control the behavior of Storybook features and addons.
+  // If you want to disable an addon within parameters set the specific add on to disabled.
+  // i.e. action: { disabled: true }, // disables and hides the action addon
+  parameters: {
+    https://storybook.js.org/docs/react/essentials/actions
+    actions,
+    /*
+    Docs addon that we use to create documentation for a story.
+    https://storybook.js.org/addons/@storybook/blocks
+    */
+    docs: {
+      page: () => (
+        ... // Look below for how we templatize the story documentation.
+      )
+    },
+  }
+  // Creates the title of the component as well as the side bar navigation of the story
+  title: 'Component/Buttons/Default'
+}
+`
+
+export const sampleStoryCode = `
+{/* Primary Story */}
+export const Button = (argTypes: ComponentProps<typeof ButtonComponent>) => {
+  const { color, variant } = argTypes
+  return (
+  <ButtonComponent
+    color={color}
+    variant={variant}
+  >
+    {children}
+  </ButtonComponent>
+  )
+}
+{/* Second Story */}
+export const BlackFilled = ({
+  children,
+}: ComponentProps<typeof ButtonComponent>) => (
+  <ButtonComponent color="black" variant="filled">
+    {children}
+  </ButtonComponent>
+)
+`
+
+<Meta
+  title="About/Creating Stories"
+  parameters={{
+  previewTabs: {
+      canvas: {
+        hidden: true,
+      },
+    },
+  viewMode: 'docs' }}
+/>
+
+<CurriStorybookWrapper title="Creating Stories" description="Documentation of how to setup a story for Curri UI Components.">
+  <Heading size="h4" as="h2" fontWeight="medium">Creating Storybook Documentation</Heading>
+
+  <Spacer value={15} />
+
+  <Paragraph size="medium">
+    Stories within Storybook provide documentation of a Curri UI component is built and used. There are two main ways of how this documentation
+    is displayed, <code>Docs</code> and <code>Sandbox</code>. <code>Docs</code> are the documentation of the component whereas the <code>Sandbox</code>
+    is an environment where you can test out editing the components.
+  </Paragraph>
+
+  <Spacer value={15} />
+
+  <Paragraph size="medium">
+    If this is your first time writing a storybook, feel free to look over at the storybook documentation of how
+    to <a href="https://storybook.js.org/docs/react/writing-stories/introduction">write a story</a>. Described below is a way we
+    create a new storybook file. Add the story file (<code>Component.stories.tsx</code>) within stories in their respective place where you think
+    they should be organized in.
+  </Paragraph>
+
+  <Spacer value={5} />
+
+  <Source language="jsx" dark format={true} code={defaultConfigCode} />
+
+  <Heading size="h3" as="h2" fontWeight="medium">Docs Template</Heading>
+
+  <Spacer value={15} />
+
+  <Paragraph size="medium">
+    We developed a template for you to write your storybook documentation. In the default configuration
+    within <code>paramters.docs.page</code>, this is where the documentation will be written. These documentations will
+    be displayed within the <code>Docs</code> tab. When building out the documentation, wrap your content within the <code>CurriStorybookWrapper</code>
+    component. You would then build out your documentation similar to how you would build out any <code>JSX</code> file. Feel free to use
+    the available components already provided such as <code>Heading</code>, <code>Paragraph</code>, <code>Grid</code> etc.
+  </Paragraph>
+
+  <Spacer value={15} />
+
+  <Heading size="h5" as="h3" fontWeight="medium">Parameter definition</Heading>
+
+  <Source
+    language="jsx"
+    dark
+    format={true}
+    code={`
+docs: {
+  page: () => (
+    ... // Build out documentation here
+  )
+},
+`
+    }
+  />
+
+  <Heading size="h5" as="h3" fontWeight="medium">CurriStorybookWrapper Example</Heading>
+
+  <Spacer value={15} />
+
+  <Paragraph size="medium">
+    Note: <code>CurriStorybookWrapper</code> has two props <code>title</code> and <code>description</code>. <code>title</code> creates
+    the Header Title and <code>description</code> (optional), adds a subheader under the title.
+  </Paragraph>
+
+  <Source language="jsx" dark format={true} code={storyCode} />
+
+  <Spacer value={5} />
+
+  <Heading size="h3" as="h2" fontWeight="medium">Creating a Story</Heading>
+
+  <Spacer value={15} />
+
+  <Paragraph size="medium">
+    Creating a named export Functional Component will create Story automatically within the storybook navigation. The props
+    that are added <code>ArgTypes</code> are the props defined in the default export that are able to be passed down to the actual
+    UI component. Creating additional exported named functional components will create more stories for your component. Example provided below.
+  </Paragraph>
+
+  <Source language="jsx" dark format={true} code={sampleStoryCode} />
+
+  <Paragraph size="medium">
+    For reference, feel free to look at <code>Button.stories.tsx</code> for an example of how a full story is written.
+  </Paragraph>
+</CurriStorybookWrapper>

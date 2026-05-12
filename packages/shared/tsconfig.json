@@ -1,0 +1,4 @@
+{
+  "extends": "@hackathon/tsconfig/base.json",
+  "include": ["src/**/*"]
+}

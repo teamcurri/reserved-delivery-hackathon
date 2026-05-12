@@ -1,0 +1,10 @@
+{
+  "extends": "./node_modules/@curri/build-rig/profiles/default/tsconfig-base.json",
+  "compilerOptions": {
+    "jsx": "react",
+    "noEmit": false,
+    "noEmitOnError": false,
+    "preserveSymlinks": true
+  },
+  "exclude": ["./disabled-stories/**/*"],
+}

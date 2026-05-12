@@ -1,0 +1,8 @@
+{"kind":"O","text":"Invoking: heft lint --fix \n"}
+{"kind":"O","text":" ---- lint started ---- \n"}
+{"kind":"O","text":"[lint:lint] Running oxlint --fix...\n"}
+{"kind":"O","text":"[lint:lint] Found 0 warnings and 0 errors.\n"}
+{"kind":"O","text":"[lint:lint] Finished in 132ms on 209 files with 93 rules using 14 threads.\n"}
+{"kind":"O","text":"[lint:lint] oxlint finished successfully\n"}
+{"kind":"O","text":" ---- lint finished (0.245s) ---- \n"}
+{"kind":"O","text":"-------------------- Finished (0.247s) --------------------\n"}

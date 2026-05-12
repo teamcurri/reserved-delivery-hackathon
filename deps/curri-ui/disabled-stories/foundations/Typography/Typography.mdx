@@ -1,0 +1,96 @@
+import pjson from '../../../../package.json';
+import { Meta, Canvas, Preview } from '@storybook/blocks';
+import { CurriStorybookWrapper } from '../../curri-storybook-components'
+import { Heading, Spacer, Paragraph } from '../../..'
+
+import '../../curri-storybook-components/default-mdx-styles.css'
+
+export const ipsumLorem = `
+I'm baby mustache craft beer glossier YOLO pickled woke. DIY chartreuse taiyaki, vegan trust fund tacos meditation kitsch.
+Offal hexagon trust fund godard ramps organic glossier, iPhone cloud bread coloring book. Poutine viral tote bag narwhal bespoke,
+raw denim vaporware locavore tacos.`
+
+<Meta
+  title="Foundations/Typography"
+  parameters={{
+  previewTabs: {
+      canvas: {
+        hidden: true,
+      },
+    },
+  viewMode: 'docs' }}
+/>
+
+<CurriStorybookWrapper title="Typography">
+  <Heading size="h4" as="h2" fontWeight="medium">Typefaces</Heading>
+
+  <Spacer value={16} />
+
+  <Paragraph size="medium">
+    Here are all the different typefaces for the Curri UI. <code>Inter</code>, <code>IBMPlexMono</code>, and <code>IBMPlexSans</code>.
+    Ensure these fonts are included in your app and defined within your global styles. These font-familys should be included within the <code>curri-app</code>.
+    You can also reference the source of these within the <code>dist/assets/fonts</code> within the <code>@curri/ui</code> node modules.
+  </Paragraph>
+
+  <Spacer value={30} />
+
+  <Heading size="h5" as="h2" fontWeight="medium">Inter</Heading>
+
+  <Spacer value={10} />
+
+  <code>font-family: Inter</code>
+
+  <Spacer value={5} />
+
+  <code>font-weight: 100 | 200 | 300 | 400 | 500 | 600 | 700 </code>
+
+  <Spacer value={16} />
+
+  <Paragraph size="medium" style={{ maxWidth: '800px', width: '100%'}}>
+    {ipsumLorem}
+  </Paragraph>
+
+  <Spacer value={30} />
+
+  <hr />
+
+  <Spacer value={30} />
+
+  <Heading size="h5" as="h2" fontWeight="bold" style={{ fontFamily: 'IBMPlexMono'}}>IBM Plex Mono</Heading>
+
+  <Spacer value={10} />
+
+  <code>font-family: IBMPlexMono</code>
+
+  <Spacer value={5} />
+
+  <code>font-weight: 100 | 200 | 300 | 400 | 500 | 600 | 700 </code>
+
+  <Spacer value={16} />
+
+  <Paragraph size="medium" style={{ fontFamily: 'IBMPlexMono', maxWidth: '800px', width: '100%'}}>
+    {ipsumLorem}
+  </Paragraph>
+
+  <Spacer value={30} />
+
+  <hr />
+
+  <Spacer value={30} />
+
+  <Heading size="h5" as="h2" fontWeight="bold" style={{ fontFamily: 'IBMPlexSans'}}>IBM Plex Sans</Heading>
+
+  <Spacer value={10} />
+
+  <code>font-family: IBMPlexSans</code>
+
+  <Spacer value={5} />
+
+  <code>font-weight: 100 | 200 | 300 | 400 | 500 | 600 | 700 </code>
+
+  <Spacer value={16} />
+
+  <Paragraph size="medium" style={{ fontFamily: 'IBMPlexSans', maxWidth: '800px', width: '100%'}}>
+    {ipsumLorem}
+  </Paragraph>
+</CurriStorybookWrapper>
