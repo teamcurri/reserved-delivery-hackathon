@@ -17,13 +17,6 @@ import { SAN_DIEGO_CENTER, findCoordsByAddress } from '@/lib/routes'
 const CENTER: [number, number] = SAN_DIEGO_CENTER
 const RADIUS_DEG = 0.06
 
-const containerStyle = {
-  width: '100%',
-  height: 320,
-  borderRadius: 12,
-  overflow: 'hidden',
-} as const
-
 function hashId(id: string): { a: number; b: number } {
   let h = 2166136261
   for (let i = 0; i < id.length; i++) {
@@ -96,13 +89,23 @@ export type DispatchMapInnerProps = {
   state: SessionState | undefined
   mobiles: ClientInfo[]
   compose?: { pickup: string; dropoff: string }
+  height?: number | string
+  borderRadius?: number | string
 }
 
 export function DispatchMapInner({
   state,
   mobiles,
   compose,
+  height = 320,
+  borderRadius = 12,
 }: DispatchMapInnerProps) {
+  const containerStyle = {
+    width: '100%',
+    height,
+    borderRadius,
+    overflow: 'hidden',
+  } as const
   const mockCoord = useMockCoords()
 
   const activeIds = useMemo(
