@@ -89,7 +89,16 @@ export type DispatchMapInnerProps = {
   state: SessionState | undefined
   mobiles: ClientInfo[]
   compose?: { pickup: string; dropoff: string }
+  /**
+   * When set, the driver with this clientId renders as the "you" pin
+   * (teal, slightly larger). Other drivers render as today. Mobile callers
+   * also typically pre-filter `mobiles` to only their own client so other
+   * drivers aren't visible — the desktop omits this prop entirely.
+   */
+  selfId?: string
+  /** Pixel height of the map container. Defaults to 320. */
   height?: number | string
+  /** Border radius of the map container. Defaults to 12. */
   borderRadius?: number | string
 }
 
@@ -97,6 +106,7 @@ export function DispatchMapInner({
   state,
   mobiles,
   compose,
+  selfId,
   height = 320,
   borderRadius = 12,
 }: DispatchMapInnerProps) {
@@ -117,14 +127,23 @@ export function DispatchMapInner({
   )
 
   const driverMarkers = mobiles.map((c) => {
-    const pos = mockCoord(`driver:${c.clientId}`)
+    // Drivers that finished onboarding have a real lat/lng on the server
+    // (rolled around San Diego). Pre-onboarding clients (or any client not
+    // in state.drivers yet) fall back to the deterministic mock hash so a
+    // pin still appears.
+    const realLoc = state?.drivers[c.clientId]?.location
+    const pos: [number, number] = realLoc
+      ? [realLoc.lat, realLoc.lng]
+      : mockCoord(`driver:${c.clientId}`)
     const isActive = activeIds.has(c.clientId)
+    const isSelf = selfId === c.clientId
     return {
       key: c.clientId,
       pos,
       name: c.identity?.name ?? '(no name)',
       letter: c.identity?.name?.[0]?.toUpperCase() ?? 'D',
       isActive,
+      isSelf,
     }
   })
 
@@ -166,14 +185,15 @@ export function DispatchMapInner({
           key={d.key}
           position={d.pos}
           icon={circleIcon({
-            color: d.isActive ? '#f59e0b' : '#0ea5e9',
+            color: d.isSelf ? '#14b8a6' : d.isActive ? '#f59e0b' : '#0ea5e9',
             text: d.letter,
-            size: d.isActive ? 30 : 22,
+            size: d.isSelf ? 28 : d.isActive ? 30 : 22,
           })}
-          zIndexOffset={d.isActive ? 1000 : 0}
+          zIndexOffset={d.isSelf ? 1500 : d.isActive ? 1000 : 0}
         >
           <Tooltip direction="top" offset={[0, -12]}>
             {d.name}
+            {d.isSelf ? ' · you' : ''}
             {d.isActive ? ' · blasting' : ''}
           </Tooltip>
         </Marker>

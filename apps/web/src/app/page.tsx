@@ -238,6 +238,14 @@ export default function DesktopPage() {
 
   const qrUrl = `/qr/${sessionId}`
   const mobiles = clients.filter((c) => c.role === 'mobile')
+  // Map only shows drivers currently being blasted (pending). At-rest
+  // drivers are hidden so the visual focus is on the wave the algo lit up.
+  const pendingDriverIds = new Set(
+    (state?.blasts ?? [])
+      .filter((b) => b.outcome === 'pending')
+      .map((b) => b.driverId),
+  )
+  const pendingMobiles = mobiles.filter((c) => pendingDriverIds.has(c.clientId))
 
   if (state?.status === 'blasting' && state.delivery) {
     return (
@@ -292,7 +300,7 @@ export default function DesktopPage() {
 
         <DispatchMap
           state={state}
-          mobiles={mobiles}
+          mobiles={pendingMobiles}
           compose={{
             pickup: selectedRoute.pickup.address,
             dropoff: selectedRoute.dropoff.address,
@@ -392,8 +400,11 @@ function ComposeForm({
       type: 'delivery:dispatch',
       payload: {
         pickup: selectedRoute.pickup.address,
+        pickupLatLng: { lat: selectedRoute.pickup.lat, lng: selectedRoute.pickup.lng },
         dropoff: selectedRoute.dropoff.address,
+        dropoffLatLng: { lat: selectedRoute.dropoff.lat, lng: selectedRoute.dropoff.lng },
         priority,
+        ...selectedRoute.details,
       },
     })
   }

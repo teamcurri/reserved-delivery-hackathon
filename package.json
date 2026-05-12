@@ -11,6 +11,7 @@
     "build": "pnpm -r run build",
     "lint": "pnpm -r run lint",
     "typecheck": "pnpm -r run typecheck",
+    "sim": "pnpm --filter @hackathon/server sim",
     "ngrok": "ngrok start --all --config=\"$HOME/Library/Application Support/ngrok/ngrok.yml\" --config=./ngrok.yml"
   },
   "devDependencies": {

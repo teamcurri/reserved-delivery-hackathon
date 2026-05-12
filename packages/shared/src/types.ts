@@ -2,7 +2,14 @@ export type Identity = {
   name: string
 }
 
-export type ClientRole = 'parent' | 'mobile'
+/**
+ * - `parent`: the dispatch console. One per session — issues delivery:* events.
+ * - `mobile`: a driver. Many per session.
+ * - `spectator`: read-only viewer (e.g. the QR/presentation screen). Many per
+ *   session. Receives state pushes but is not in the driver list and is not
+ *   subject to the single-parent constraint.
+ */
+export type ClientRole = 'parent' | 'mobile' | 'spectator'
 
 export type ClientInfo = {
   clientId: string
@@ -20,9 +27,23 @@ export type BlastOutcome = 'pending' | 'rejected' | 'expired' | 'accepted'
 export type Delivery = {
   id: string
   pickup: string
+  pickupLatLng: LatLng
   dropoff: string
+  dropoffLatLng: LatLng
   priority: DispatchPriority
   createdAt: number
+  /** Total payout offered to the driver, in USD. */
+  price: number
+  /** Approximate total trip distance (pickup → dropoff) in miles. */
+  totalDistanceMi: number
+  /** Personal protective equipment required for the load, e.g. ['Gloves']. */
+  ppe: string[]
+  /** Count of distinct items / parcels in the load. */
+  totalItems: number
+  /** Approximate total weight of the load in pounds. */
+  totalWeightLbs: number
+  /** Short human-readable description of the cargo. */
+  description: string
 }
 
 export type Blast = {
